@@ -96,11 +96,11 @@ export default function MoodTracker() {
       {activeTab === 'log' && (
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           {submitted ? (
-            <div className="card card-lg" style={{ textAlign: 'center', background: 'linear-gradient(135deg,rgba(0,217,166,0.08),rgba(124,58,237,0.08))', border: '1px solid rgba(0,217,166,0.2)' }} >
-              <div style={{ fontSize: 72, marginBottom: 20, animation: 'float 3s ease-in-out infinite' }}>{selectedMood?.emoji}</div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Mood Logged! 🎉</h2>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
-                Feeling <strong style={{ color: 'var(--accent-teal)' }}>{selectedMood?.label}</strong> · Score: {selectedMood?.score}/10
+            <div className="card card-lg" style={{ textAlign:'center', background:'linear-gradient(135deg,rgba(139,92,246,0.06),rgba(236,72,153,0.06))', border:'1px solid rgba(139,92,246,0.18)' }}>
+              <div style={{ fontSize:64, marginBottom:18, animation:'float 3s ease-in-out infinite' }}>{selectedMood?.emoji}</div>
+              <h2 style={{ fontSize:22, fontWeight:800, marginBottom:7, color:'#111827' }}>Mood Logged! 🎉</h2>
+              <p style={{ color:'#6B7280', marginBottom:20 }}>
+                Feeling <strong style={{ color:'#8B5CF6' }}>{selectedMood?.label}</strong> · Score: {selectedMood?.score}/10
               </p>
               <div className="alert alert-info" style={{ textAlign: 'left', marginBottom: 24 }}>
                 <span>💡</span>
@@ -146,7 +146,7 @@ export default function MoodTracker() {
                 <label className="form-label">Contributing Factors (optional)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {TAG_OPTIONS.map(tag => (
-                    <button key={tag} type="button" onClick={() => toggleTag(tag)} style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${tags.includes(tag) ? 'rgba(0,217,166,0.5)' : 'var(--border)'}`, background: tags.includes(tag) ? 'rgba(0,217,166,0.1)' : 'transparent', color: tags.includes(tag) ? 'var(--accent-teal)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                    <button key={tag} type="button" onClick={() => toggleTag(tag)} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${tags.includes(tag)?'rgba(139,92,246,0.45)':'rgba(139,92,246,0.12)'}`, background: tags.includes(tag)?'linear-gradient(135deg,rgba(139,92,246,0.1),rgba(236,72,153,0.06))':'#fff', color: tags.includes(tag)?'#7C3AED':'#6B7280', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.2s' }}>
                       {tags.includes(tag) ? '✓ ' : ''}{tag}
                     </button>
                   ))}
@@ -205,29 +205,29 @@ export default function MoodTracker() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Stats Row */}
           <div className="grid-3 animate-fade-in">
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--accent-teal)' }}>{avgScore}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Average Mood Score</div>
+            <div className="card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:38, fontWeight:900, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{avgScore}</div>
+              <div style={{ fontSize:12, color:'#9CA3AF', marginTop:4 }}>Average Mood Score</div>
             </div>
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--accent-purple-light)' }}>{moodLogs.length}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Total Entries</div>
+            <div className="card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:38, fontWeight:900, color:'#8B5CF6' }}>{moodLogs.length}</div>
+              <div style={{ fontSize:12, color:'#9CA3AF', marginTop:4 }}>Total Entries</div>
             </div>
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--accent-rose)' }}>{correlationPct}%</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>High-Stress Days</div>
+            <div className="card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:38, fontWeight:900, color:'#EC4899' }}>{correlationPct}%</div>
+              <div style={{ fontSize:12, color:'#9CA3AF', marginTop:4 }}>High-Stress Days</div>
             </div>
           </div>
 
           {/* AI Skin Correlation Insight */}
           {moodLogs.length > 3 && (
-            <div className="card animate-fade-in" style={{ background: 'linear-gradient(135deg,rgba(244,63,143,0.08),rgba(124,58,237,0.08))', borderColor: 'rgba(244,63,143,0.2)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-rose)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>🧠 AI Skin-Mood Correlation</div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Insights from your mood data</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="card animate-fade-in" style={{ background:'linear-gradient(135deg,rgba(139,92,246,0.06),rgba(236,72,153,0.06))', borderColor:'rgba(139,92,246,0.18)' }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#8B5CF6', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>🧠 AI Skin-Mood Correlation</div>
+              <h3 style={{ fontSize:16, fontWeight:700, marginBottom:10, color:'#111827' }}>Insights from your mood data</h3>
+              <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
                 {AI_INSIGHTS.slice(0, 3).map((ins, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
-                    <span style={{ flexShrink: 0 }}>{ins.icon}</span>
+                  <div key={i} style={{ display:'flex', gap:9, fontSize:12, color:'#6B7280', background:'rgba(139,92,246,0.04)', borderRadius:8, padding:'7px 10px', border:'1px solid rgba(139,92,246,0.08)' }}>
+                    <span style={{ flexShrink:0 }}>{ins.icon}</span>
                     <span>{ins.message}</span>
                   </div>
                 ))}
@@ -241,12 +241,12 @@ export default function MoodTracker() {
               <div className="section-title" style={{ marginBottom: 20 }}>Mood Distribution</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {moodCounts.map(m => (
-                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 80, fontSize: 13, color: 'var(--text-secondary)' }}>{m.emoji} {m.label}</span>
-                    <div style={{ flex: 1, height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${(m.count / moodLogs.length) * 100}%`, background: m.color, borderRadius: 4, transition: 'width 1s' }} />
+                  <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <span style={{ width:80, fontSize:12, color:'#6B7280' }}>{m.emoji} {m.label}</span>
+                    <div style={{ flex:1, height:7, background:'rgba(139,92,246,0.08)', borderRadius:4, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${(m.count/moodLogs.length)*100}%`, background:m.color, borderRadius:4, transition:'width 1s' }} />
                     </div>
-                    <span style={{ width: 40, fontSize: 13, fontWeight: 700, color: m.color, textAlign: 'right' }}>{m.count}</span>
+                    <span style={{ width:36, fontSize:12, fontWeight:700, color:m.color, textAlign:'right' }}>{m.count}</span>
                   </div>
                 ))}
               </div>
@@ -256,17 +256,17 @@ export default function MoodTracker() {
           {/* Heatmap */}
           <div className="card animate-fade-in">
             <div className="section-title" style={{ marginBottom: 16 }}>90-Day Mood Heatmap</div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-              {WEEK_DAYS_SHORT.map(d => <div key={d} style={{ width: 14, fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>{d}</div>)}
+            <div style={{ display:'flex', gap:4, marginBottom:7 }}>
+              {WEEK_DAYS_SHORT.map(d => <div key={d} style={{ width:14, fontSize:10, color:'#9CA3AF', textAlign:'center' }}>{d}</div>)}
             </div>
             <div className="heatmap">
               {heatmapData.map((cell, i) => (
                 <div key={i} className={`heatmap-cell ${getHeatClass(cell.score)}`} title={`${cell.date.toLocaleDateString()}: ${cell.mood || 'No data'} ${cell.score ? `(${cell.score}/10)` : ''}`} />
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+            <div style={{ display:'flex', gap:5, alignItems:'center', marginTop:10, fontSize:10, color:'#9CA3AF' }}>
               Less
-              {[0, 1, 2, 3, 4].map(i => <div key={i} className={`heatmap-cell ${i ? `heatmap-${i}` : ''}`} style={{ flexShrink: 0 }} />)}
+              {[0,1,2,3,4].map(i => <div key={i} className={`heatmap-cell ${i?`heatmap-${i}`:''}`} style={{ flexShrink:0 }} />)}
               More
             </div>
           </div>
@@ -283,23 +283,23 @@ export default function MoodTracker() {
               {moodLogs.map((log, i) => {
                 const mood = MOODS.find(m => m.id === log.mood);
                 return (
-                  <div key={log.id} className="timeline-item animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                    <div className="timeline-dot" style={{ background: mood?.color || 'var(--accent-teal)' }} />
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: log.notes ? 8 : 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 24 }}>{mood?.emoji}</span>
+                  <div key={log.id} className="timeline-item animate-fade-in" style={{ animationDelay:`${i*0.05}s` }}>
+                    <div className="timeline-dot" style={{ background:mood?.color||'#8B5CF6' }} />
+                    <div style={{ background:'rgba(255,255,255,0.8)', border:'1px solid rgba(139,92,246,0.1)', borderRadius:12, padding:'12px 14px', backdropFilter:'blur(8px)', boxShadow:'0 2px 8px rgba(139,92,246,0.06)' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:log.notes?7:0 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                          <span style={{ fontSize:22 }}>{mood?.emoji}</span>
                           <div>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: mood?.color }}>{mood?.label}</span>
-                            <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 8 }}>Score: {mood?.score}/10</span>
+                            <span style={{ fontSize:14, fontWeight:700, color:mood?.color||'#8B5CF6' }}>{mood?.label}</span>
+                            <span style={{ fontSize:12, color:'#9CA3AF', marginLeft:8 }}>Score: {mood?.score}/10</span>
                           </div>
                         </div>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{timeAgo(log.timestamp)}</span>
+                        <span style={{ fontSize:11, color:'#9CA3AF' }}>{timeAgo(log.timestamp)}</span>
                       </div>
-                      {log.notes && <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>{log.notes}</p>}
+                      {log.notes && <p style={{ fontSize:12, color:'#6B7280', lineHeight:1.6, marginBottom:7 }}>{log.notes}</p>}
                       {log.tags?.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {log.tags.map(t => <span key={t} className="badge badge-gray" style={{ fontSize: 10 }}>{t}</span>)}
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                          {log.tags.map(t => <span key={t} className="badge badge-gray" style={{ fontSize:10 }}>{t}</span>)}
                         </div>
                       )}
                     </div>
