@@ -1,5 +1,5 @@
 """SkinVeda.ai — Pydantic Models"""
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -65,6 +65,8 @@ class DiagnosisResponse(BaseModel):
 
 class DiagnosisRecordCreate(BaseModel):
     """A skin analysis produced in the app, saved to the user's history."""
+    model_config = ConfigDict(protected_namespaces=())  # allow the `model_version` field name
+
     disease: str = Field(..., min_length=1, max_length=100)
     confidence: float = Field(..., ge=0, le=1)
     risk_level: Optional[str] = Field(None, max_length=20)
