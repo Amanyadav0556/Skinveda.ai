@@ -159,10 +159,20 @@ export default function App() {
   }, []);
 
   // Mood
-  const addMoodLog = useCallback((log) => {
-    const entry = { ...log, id: Date.now(), timestamp: new Date().toISOString() };
+  const addMoodLog = useCallback(async (log) => {
+    const entry = { ...log, id: `tmp-${Date.now()}`, timestamp: new Date().toISOString() };
     setMoodLogs(prev => { const n = [entry, ...prev]; writeLS('sv_moods', n); return n; });
-  }, []);
+    if (!getToken()) return entry;
+    try {
+      const saved = await api.addMood(log);
+      setMoodLogs(prev => { const n = prev.map(m => (m.id === entry.id ? saved : m)); writeLS('sv_moods', n); return n; });
+      return saved;
+    } catch (err) {
+      setMoodLogs(prev => { const n = prev.filter(m => m.id !== entry.id); writeLS('sv_moods', n); return n; });
+      showToast(err.message, 'error');
+      throw err;
+    }
+  }, [showToast]);
 
   // Diagnosis
   const addDiagnosis = useCallback((d) => {

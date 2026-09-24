@@ -24,10 +24,15 @@ export default function MoodTracker() {
   const submit = async () => {
     if (!selected) { showToast('Pick how you feel first', 'error'); return; }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 600));
-    addMoodLog({ mood: selected.id, score: selected.score, notes: note, tags });
-    showToast(`Logged: ${selected.label}`, 'success');
-    setSelected(null); setNote(''); setTags([]); setSaving(false);
+    try {
+      await addMoodLog({ mood: selected.id, score: selected.score, notes: note, tags });
+      showToast(`Logged: ${selected.label}`, 'success');
+      setSelected(null); setNote(''); setTags([]);
+    } catch {
+      // addMoodLog already showed the error; keep the form so the user can retry
+    } finally {
+      setSaving(false);
+    }
   };
 
   const last14 = useMemo(() => Array.from({ length: 14 }, (_, k) => {
