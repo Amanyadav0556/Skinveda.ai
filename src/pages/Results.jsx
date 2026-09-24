@@ -47,7 +47,7 @@ export default function Results() {
         actions={<>
           {history.length > 1 && (
             <select className="select" style={{ height: 40, width: 'auto', borderRadius: 99 }} value={d.id}
-              onChange={e => openResult(Number(e.target.value))} aria-label="Choose report">
+              onChange={e => openResult(history.find(h => String(h.id) === e.target.value)?.id)} aria-label="Choose report">
               {history.map(h => <option key={h.id} value={h.id}>{formatDate(h.timestamp)} · {h.skinScore}</option>)}
             </select>
           )}
