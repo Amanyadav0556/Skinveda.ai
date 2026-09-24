@@ -409,3 +409,5 @@
 @media (max-width: 1100px) { .report-score .score-card { flex-direction: row; text-align: left; } }
 /* Sponsored label sits bottom-left so it never collides with the category */
 .product-visual .pill-sponsored { top: auto; right: auto; bottom: 10px; left: 10px; }
+/* Journey tiles without a photo shouldn't reserve a full square */
+.journey-photo:not(:has(img)) { aspect-ratio: auto; height: 88px; }
