@@ -39,7 +39,7 @@ export function RecommendationExplanation({ reason, title = 'Why recommended?' }
   );
 }
 
-export function ProductCard({ product, reason, onOpen }) {
+export function ProductCard({ product, reason, matches, onOpen }) {
   const ingredients = product.keyIngredients.map(i => INGREDIENTS[i]?.short || i);
   return (
     <article className="product-card">
@@ -52,7 +52,9 @@ export function ProductCard({ product, reason, onOpen }) {
         {ingredients.slice(0, 2).map(i => <span key={i} className="pill">{i}</span>)}
       </div>
       <p className="t-small ink2">{product.benefit}</p>
-      {reason && <RecommendationExplanation reason={reason} />}
+      {/* Sponsored items never carry SkinVeda's recommendation reasoning */}
+      {reason && !product.sponsored && <RecommendationExplanation reason={reason} />}
+      {!reason && matches && !product.sponsored && <span className="pill pill-primary" style={{ alignSelf: 'flex-start' }}><Icon name="check" size={12} stroke={2.4} /> Matches your skin</span>}
       <div className="row-between" style={{ marginTop: 'auto' }}>
         <span className="product-price">{inr(product.price)} <small className="muted" style={{ fontWeight: 500, fontSize: 12.5 }}>· {product.size}</small></span>
         <button className="btn btn-sm btn-ghost" onClick={() => onOpen(product.id)} aria-label={`View details for ${product.name}`}>

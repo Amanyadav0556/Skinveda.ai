@@ -111,7 +111,7 @@ function ProductList() {
             <EmptyState icon="bag" title="No products match these filters" text="Try removing a filter or searching for an ingredient instead." />
           ) : (
             <div className="product-grid">
-              {items.map(p => <ProductCard key={p.id} product={p} reason={explainMatch(p, skinType, concerns)} onOpen={open} />)}
+              {items.map(p => <ProductCard key={p.id} product={p} matches={!!explainMatch(p, skinType, concerns)} onOpen={open} />)}
             </div>
           )}
         </div>
