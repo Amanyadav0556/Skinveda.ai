@@ -73,6 +73,16 @@ create table if not exists progress_photos (
 create index if not exists progress_photos_user_ts on progress_photos (user_id, timestamp desc);
 alter table progress_photos enable row level security;
 
+-- One row per user per day: which AM/PM routine steps were ticked off
+create table if not exists routine_logs (
+    user_id    uuid not null references users(id) on delete cascade,
+    day        date not null,
+    done_steps jsonb not null default '[]',
+    updated_at timestamptz not null default now(),
+    primary key (user_id, day)
+);
+alter table routine_logs enable row level security;
+
 -- Supabase exposes the public schema through its REST API. Enabling RLS with
 -- no policies blocks that path (password hashes stay private); this backend
 -- connects as the postgres role, which bypasses RLS.
