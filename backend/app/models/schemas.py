@@ -90,6 +90,18 @@ class DiagnosisRecordCreate(BaseModel):
             raise ValueError("image_data must be a data:image/... URL")
         return v
 
+class ProgressPhotoCreate(BaseModel):
+    image_data: str = Field(..., max_length=1_500_000)
+    body_region: Optional[str] = Field(None, max_length=60)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator("image_data")
+    @classmethod
+    def must_be_image_data_url(cls, v):
+        if not v.startswith("data:image/"):
+            raise ValueError("image_data must be a data:image/... URL")
+        return v
+
 # ── Mood ──────────────────────────────────────────────────────────────
 class MoodType(str, Enum):
     happy = "happy"; calm = "calm"; sad = "sad"; anxious = "anxious"; stressed = "stressed"; angry = "angry"
