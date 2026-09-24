@@ -80,4 +80,11 @@ export const api = {
         saveToken(data);
         return { ...data, user: toAppUser(data.user) };
     },
+
+    // ── Mood ───────────────────────────────────────────────────────
+    listMoods: async () => (await request('GET', '/mood/', undefined, 'Could not load mood history')).moods,
+    addMood: (log) => request('POST', '/mood/', {
+        mood: log.mood, score: log.score, notes: log.notes || null, tags: log.tags || [],
+    }, 'Could not save mood'),
+    clearMoods: () => request('DELETE', '/mood/', undefined, 'Could not clear mood history'),
 };
