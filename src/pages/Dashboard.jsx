@@ -1,228 +1,165 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../App';
-import { Icon, ScoreRing, Meter, LineChart, Segmented, EmptyState } from '../components/ui';
-import { ENV_DATA, MOODS, timeAgo, formatDate } from '../data/mockData';
-import { enrichDiagnosis, scoreLabel, METRIC_LABELS, buildRoutine, useRoutineLog, guideFor, firstName, useNow } from '../lib/skin';
+import { Icon, LineChart, Meter, EmptyState } from '../components/ui';
+import { SkinScoreCard, EscalationNotice, SafetyNotice } from '../components/skin';
+import { AppointmentCard } from '../components/commerce';
+import { buildRoutine, ingredientPlan } from '../lib/routine';
+import { recommendProducts } from '../lib/catalog';
+import { useRoutineLog, firstName, useNow } from '../lib/skin';
+import { METRICS, readMetric } from '../lib/records';
+import { INGREDIENTS, SKIN_TYPES } from '../data/skincare';
+import { formatDate, timeAgo } from '../data/mockData';
 
-const QUICK = [
-  { page: 'diagnosis',       icon: 'scan',  label: 'New scan',        sub: 'About 60 seconds' },
-  { page: 'recommendations', icon: 'spark', label: 'My routine',      sub: 'AM & PM plan' },
-  { page: 'mood',            icon: 'smile', label: 'Log mood',        sub: 'Stress affects skin' },
-  { page: 'solace',          icon: 'chat',  label: 'Ask Solace',      sub: 'AI companion' },
-];
+const DAY = 864e5;
+const inr = n => `₹${Number(n).toLocaleString('en-IN')}`;
 
 export default function Dashboard() {
-  const { user, navigate, moodLogs, diagnoses, openResult } = useApp();
-  const [range, setRange] = useState('all');
+  const { user, navigate, scans, openScan, appointments } = useApp();
   const [done, toggle] = useRoutineLog();
+  const [products, setProducts] = useState([]);
   const now = useNow();
 
-  const history = useMemo(() => diagnoses.map(enrichDiagnosis), [diagnoses]);
-  const latest = history[0];
-  const prev = history[1];
-  const delta = latest && prev ? latest.skinScore - prev.skinScore : null;
+  const latest = scans[0];
+  const prev = scans[1];
+  const skinType = latest?.skinType || (SKIN_TYPES.includes(user?.skinType) ? user.skinType : 'Normal');
+  const concernIds = useMemo(() => (latest ? latest.concerns.map(c => c.id) : []), [latest]);
 
-  const chartPoints = useMemo(() => {
-    const cutoff = range === '30d' ? now - 30 * 864e5 : range === '90d' ? now - 90 * 864e5 : 0;
-    return [...history].reverse()
-      .filter(d => new Date(d.timestamp).getTime() >= cutoff)
-      .map(d => ({ label: formatDate(d.timestamp).replace(/, \d{4}$/, ''), value: d.skinScore }));
-  }, [history, range, now]);
+  useEffect(() => {
+    recommendProducts({ skinType, concerns: concernIds, limit: 2 }).then(setProducts);
+  }, [skinType, concernIds]);
 
-  const hour = new Date().getHours();
+  const hour = new Date(now).getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const isAM = hour < 15;
-  const routine = buildRoutine(user?.skinType, latest?.disease || user?.skinCondition);
+  const routine = buildRoutine(skinType, concernIds);
   const steps = isAM ? routine.am : routine.pm;
   const doneCount = steps.filter(s => done.includes(s.id)).length;
+  const ingredient = INGREDIENTS[ingredientPlan(skinType, concernIds).recommended.find(i => i !== 'sunscreen') || 'sunscreen'];
 
-  const weekMoods = moodLogs.filter(m => now - new Date(m.timestamp).getTime() < 7 * 864e5);
-  const avgMood = weekMoods.length
-    ? (weekMoods.reduce((s, m) => s + (MOODS.find(x => x.id === m.mood)?.score || 5), 0) / weekMoods.length).toFixed(1)
-    : null;
-
-  const guide = guideFor(latest?.disease || user?.skinCondition);
-  const env = ENV_DATA.current;
-  const insights = [
-    latest && { icon: 'target', title: `Focus on ${latest.disease.toLowerCase()} care`, text: guide.summary },
-    { icon: 'sun', clay: true, title: `UV ${env.uvIndex} today — high`, text: 'Apply SPF 50 before going out and reapply every 2 hours outdoors.' },
-    avgMood && Number(avgMood) < 5 && { icon: 'heart', clay: true, title: 'Stress may be affecting your skin', text: 'Your mood average dipped this week. A short breathing session with Solace can help.' },
-    { icon: 'drop', title: 'Hydration tip', text: guide.tips[0] },
-  ].filter(Boolean).slice(0, 3);
+  const daysSince = latest ? Math.floor((now - new Date(latest.timestamp).getTime()) / DAY) : null;
+  const nextScanIn = latest ? Math.max(0, 7 - daysSince) : 0;
+  const chart = [...scans].reverse().slice(-8).map(s => ({ label: formatDate(s.timestamp).replace(/, \d{4}$/, ''), value: s.skinScore }));
+  const changes = latest && prev
+    ? METRICS.map(m => ({ ...m, now: latest.metrics[m.key], diff: latest.metrics[m.key] - prev.metrics[m.key] }))
+        .filter(m => m.diff !== 0).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 3)
+    : [];
+  const nextAppt = appointments.find(a => a.status !== 'cancelled' && new Date(a.slot).getTime() > now);
 
   return (
     <div className="stack">
-      {/* Hero */}
-      <section className="dash-hero">
-        {latest
-          ? <ScoreRing value={latest.skinScore} size={128} stroke={11} color="#A8CBB9" label={`Skin score ${latest.skinScore}`} />
-          : <div className="ui-empty-icon" style={{ width: 96, height: 96, borderRadius: 28, background: 'rgba(255,255,255,.1)', color: '#A8CBB9' }}><Icon name="scan" size={36} /></div>}
+      <header className="dash-head">
         <div>
-          <span className="mono" style={{ color: '#F0A58C' }}>{latest ? 'Skin health summary' : 'Welcome to SkinVeda'}</span>
-          {latest ? (
-            <>
-              <h2 style={{ marginTop: 8 }}>Your skin is looking <em>{scoreLabel(latest.skinScore).toLowerCase()}</em>, {firstName(user)}.</h2>
-              <p>
-                {delta === null ? 'Run another scan next week to start tracking your trend.'
-                  : delta >= 0 ? `Up ${delta} points since your previous scan — your routine is working.`
-                  : `Down ${Math.abs(delta)} points since your previous scan. Check today’s recommendations.`}
-              </p>
-              <div className="dash-hero-meta">
-                <span className="pill"><Icon name="clock" size={13} /> Last scan {timeAgo(latest.timestamp)}</span>
-                <span className="pill"><Icon name="target" size={13} /> {latest.disease}</span>
-                <span className="pill"><Icon name="flame" size={13} /> {user?.streak || 1}-day streak</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 style={{ marginTop: 8 }}>Let’s get your <em>first reading</em>, {firstName(user)}.</h2>
-              <p>One clear photo gives you a skin score, detected concerns and a routine built for you.</p>
-            </>
-          )}
+          <h1>{greeting}, {firstName(user)}</h1>
+          <p>{latest ? `Your last scan was ${timeAgo(latest.timestamp).toLowerCase()}.` : "Let's start with a quick face scan."}</p>
         </div>
-        <div className="dash-hero-actions">
-          <button className="btn btn-light" onClick={() => navigate('diagnosis')}><Icon name="scan" size={17} /> New scan</button>
-          {latest && <button className="btn" style={{ color: 'var(--sv-ivory)', borderColor: 'rgba(247,244,238,.3)' }} onClick={() => openResult(latest.id)}>View report <Icon name="arrow" size={17} /></button>}
-        </div>
-      </section>
+        <button className="btn btn-primary" onClick={() => navigate('scan')}><Icon name="scan" size={17} /> Scan skin</button>
+      </header>
 
-      {/* Overview stats */}
-      <section className="grid g-4">
-        <div className="card stat">
-          <span className="stat-icon"><Icon name="trend" size={18} /></span>
-          <span className="stat-label">Score change</span>
-          <span className="stat-value">{delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}<small>pts</small></span>
-          <span className="stat-foot">vs previous scan</span>
-        </div>
-        <div className="card stat">
-          <span className="stat-icon"><Icon name="scan" size={18} /></span>
-          <span className="stat-label">Analyses</span>
-          <span className="stat-value">{history.length}</span>
-          <span className="stat-foot">{history.length ? `Since ${formatDate(history[history.length - 1].timestamp)}` : 'None yet'}</span>
-        </div>
-        <div className="card stat">
-          <span className="stat-icon clay"><Icon name="check" size={18} /></span>
-          <span className="stat-label">{isAM ? 'Morning' : 'Evening'} routine</span>
-          <span className="stat-value">{doneCount}<small>/ {steps.length}</small></span>
-          <Meter value={(doneCount / steps.length) * 100} thin />
-        </div>
-        <div className="card stat">
-          <span className="stat-icon"><Icon name="smile" size={18} /></span>
-          <span className="stat-label">Mood · 7 days</span>
-          <span className="stat-value">{avgMood ?? '—'}<small>/ 10</small></span>
-          <span className="stat-foot">{weekMoods.length} check-ins this week</span>
-        </div>
-      </section>
+      {!latest ? (
+        <section className="card">
+          <EmptyState icon="face" title="Get your first skin report"
+            text="One clear photo gives you a wellness score, a summary of visible concerns and a routine built around them. It takes about a minute."
+            action={<button className="btn btn-primary" onClick={() => navigate('scan')}><Icon name="scan" size={17} /> Scan my skin</button>} />
+        </section>
+      ) : (
+        <>
+          {latest.escalation?.recommended && <EscalationNotice reasons={latest.escalation.reasons} onFindDoctor={() => navigate('doctors')} />}
+          <section className="grid g-main">
+            {/* Current score + latest summary */}
+            <div className="card">
+              <div className="dash-summary">
+                <SkinScoreCard score={latest.skinScore} delta={prev ? latest.skinScore - prev.skinScore : null} size={112} />
+                <div>
+                  <span className="stat-label">Latest scan · {formatDate(latest.timestamp)}</span>
+                  <p style={{ fontSize: 15.5, color: 'var(--text)' }}>{latest.summary}</p>
+                  <div className="chip-row mt-16">
+                    {latest.concerns[0] && <span className="pill pill-primary">Main concern: {latest.concerns[0].name}</span>}
+                    <span className="pill">{latest.skinType} skin (estimate)</span>
+                  </div>
+                  <button className="btn btn-sm btn-ghost mt-16" onClick={() => openScan(latest.id)}>View full report <Icon name="arrow" size={15} /></button>
+                </div>
+              </div>
+            </div>
+            {/* Next recommended scan */}
+            <div className="card">
+              <div className="card-head"><h3>Next recommended scan</h3><Icon name="calendar" size={18} className="muted" /></div>
+              <div className="stat-value">{nextScanIn === 0 ? 'Today' : `In ${nextScanIn} day${nextScanIn > 1 ? 's' : ''}`}</div>
+              <p className="t-small ink2 mt-8">Weekly scans in the same light and angle show real change most clearly.</p>
+              <Meter value={Math.min(100, (daysSince / 7) * 100)} thin />
+              <button className={`btn btn-sm mt-16 ${nextScanIn === 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => navigate('scan')}>Scan now</button>
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="grid g-main">
-        <div className="stack">
-          {/* Progress overview */}
-          <div className="card">
-            <div className="card-head">
-              <div>
-                <h3>Progress overview</h3>
-                <p className="card-sub">Skin score across your analyses</p>
-              </div>
-              <Segmented size="sm" value={range} onChange={setRange}
-                options={[{ value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
-            </div>
-            {chartPoints.length >= 2
-              ? <LineChart points={chartPoints} height={230} ariaLabel="Skin score over time" />
-              : <EmptyState icon="chart" title="Your trend appears after two scans"
-                  text="Scan once a week in similar lighting to see how your skin responds to your routine."
-                  action={<button className="btn btn-soft btn-sm" onClick={() => navigate('diagnosis')}>Start a scan</button>} />}
+        {/* Today's routine */}
+        <div className="card">
+          <div className="card-head">
+            <div><h3>Today's {isAM ? 'morning' : 'night'} routine</h3><p className="card-sub">{doneCount} of {steps.length} done</p></div>
+            <button className="btn-text t-small" onClick={() => navigate('my-skin/routine')}>Full routine</button>
           </div>
-
-          {/* Recent analysis */}
-          <div className="card">
-            <div className="card-head">
-              <h3>Recent analyses</h3>
-              {history.length > 0 && <button className="btn-text" style={{ fontSize: 13.5 }} onClick={() => navigate('progress')}>View all</button>}
-            </div>
-            {history.length === 0
-              ? <EmptyState icon="image" title="No analyses yet" text="Your scan history will live here." />
-              : history.slice(0, 4).map(d => (
-                <button key={d.id} className="list-item" onClick={() => openResult(d.id)}>
-                  <span className="list-thumb">{d.imageData ? <img src={d.imageData} alt="" /> : <Icon name="scan" size={20} />}</span>
-                  <span className="list-body">
-                    <strong>{d.disease}</strong>
-                    <small>{d.bodyRegion || 'Face'} · {timeAgo(d.timestamp)}</small>
-                  </span>
-                  <span className="pill pill-emerald">{d.skinScore}</span>
-                  <Icon name="chevron" size={16} className="muted" />
-                </button>
-              ))}
-          </div>
-        </div>
-
-        <div className="stack">
-          {/* Skin health summary */}
-          <div className="card card-tint">
-            <div className="card-head">
-              <h3>Skin health</h3>
-              <span className="mono">{latest ? formatDate(latest.timestamp) : 'No data'}</span>
-            </div>
-            {latest ? (
-              <ul className="metric-list">
-                {Object.entries(METRIC_LABELS).slice(0, 5).map(([k, label]) => (
-                  <li key={k}>
-                    <div><span>{label}</span><b>{latest.metrics[k]}</b></div>
-                    <Meter value={latest.metrics[k]} tone={latest.metrics[k] < 60 ? 'clay' : 'emerald'} />
-                  </li>
-                ))}
-              </ul>
-            ) : <EmptyState icon="drop" title="Awaiting your first scan" />}
-          </div>
-
-          {/* Today's routine */}
-          <div className="card">
-            <div className="card-head">
-              <div>
-                <h3>{isAM ? 'Morning' : 'Evening'} routine</h3>
-                <p className="card-sub">Tap each step as you go</p>
-              </div>
-              <span className="pill pill-mono">{doneCount}/{steps.length}</span>
-            </div>
-            <div className="routine-list">
-              {steps.map(s => (
-                <button key={s.id} className={`routine-item${done.includes(s.id) ? ' done' : ''}`} onClick={() => toggle(s.id)}
-                  aria-pressed={done.includes(s.id)}>
-                  <span className="routine-check"><Icon name="check" size={13} stroke={2.6} /></span>
-                  <span className="list-body"><strong>{s.product}</strong></span>
-                  <span className="routine-step">{s.step}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* AI recommendations */}
-          <div className="card">
-            <div className="card-head">
-              <h3>AI recommendations</h3>
-              <button className="btn-text" style={{ fontSize: 13.5 }} onClick={() => navigate('recommendations')}>See plan</button>
-            </div>
-            {insights.map(i => (
-              <div className="insight" key={i.title}>
-                <span className={`insight-icon${i.clay ? ' clay' : ''}`}><Icon name={i.icon} size={17} /></span>
-                <div><strong>{i.title}</strong><p>{i.text}</p></div>
-              </div>
+          <div className="routine-list">
+            {steps.map(s => (
+              <button key={s.id} className={`routine-item${done.includes(s.id) ? ' done' : ''}`} onClick={() => toggle(s.id)} aria-pressed={done.includes(s.id)}>
+                <span className="routine-check"><Icon name="check" size={13} stroke={2.6} /></span>
+                <span className="list-body"><strong>{s.title}</strong><small>{s.lookFor}</small></span>
+                <span className="routine-step">{s.step}</span>
+              </button>
             ))}
           </div>
-
-          {/* Quick actions */}
-          <div className="card">
-            <div className="card-head"><h3>Quick actions</h3></div>
-            <div className="quick-actions">
-              {QUICK.map(q => (
-                <button key={q.page} className="quick-action" onClick={() => navigate(q.page)}>
-                  <span><Icon name={q.icon} size={17} /></span>
-                  {q.label}
-                  <small>{q.sub}</small>
-                </button>
-              ))}
-            </div>
-          </div>
+        </div>
+        {/* Recommended ingredient */}
+        <div className="card">
+          <div className="card-head"><h3>Ingredient to look for</h3><Icon name="flask" size={18} className="muted" /></div>
+          <strong className="h-card">{ingredient.name}</strong>
+          <p className="t-small ink2 mt-8">{ingredient.mayHelp}</p>
+          <p className="t-help mt-8">{ingredient.usage}</p>
+          <button className="btn btn-sm btn-ghost mt-16" onClick={() => navigate('my-skin/ingredients')}>All ingredients for you</button>
         </div>
       </section>
+
+      <section className="grid g-3">
+        {/* Progress since last scan */}
+        <div className="card">
+          <div className="card-head"><h3>Progress</h3><button className="btn-text t-small" onClick={() => navigate('progress')}>Details</button></div>
+          {chart.length >= 2 ? (
+            <>
+              <LineChart points={chart} height={120} ariaLabel="Skin score over recent scans" />
+              <ul className="rows soft mt-8">
+                {changes.map(c => {
+                  const good = c.better === 'high' ? c.diff > 0 : c.better === 'low' ? c.diff < 0 : Math.abs(c.now - 42) < Math.abs(c.now - c.diff - 42);
+                  return <li key={c.key}><span>{c.label}</span><b className={good ? 'up' : 'down'}>{c.diff > 0 ? '+' : ''}{c.diff} · {readMetric(c.key, c.now).text}</b></li>;
+                })}
+              </ul>
+            </>
+          ) : <p className="t-small ink2">Your progress appears after your second scan.</p>}
+        </div>
+        {/* Product suggestions */}
+        <div className="card">
+          <div className="card-head"><h3>Products you could explore</h3></div>
+          {products.map(({ product, reason }) => (
+            <button key={product.id} className="list-item" onClick={() => navigate(`products/${product.id}`)} title={reason}>
+              <span className="list-thumb"><Icon name="bag" size={18} /></span>
+              <span className="list-body"><strong>{product.name}</strong><small>{product.brand} · {inr(product.price)}</small></span>
+              <Icon name="chevron" size={16} className="muted" />
+            </button>
+          ))}
+          <p className="t-help mt-8">Optional — your routine works with any product that has the right ingredients.</p>
+        </div>
+        {/* Doctor shortcut */}
+        <div className="card">
+          <div className="card-head"><h3>Dermatologist</h3><Icon name="doctor" size={18} className="muted" /></div>
+          {nextAppt ? (
+            <><p className="t-small ink2" style={{ marginBottom: 10 }}>Your next consultation</p><AppointmentCard appt={nextAppt} /></>
+          ) : (
+            <p className="t-small ink2">Want a professional opinion on your skin? Video, chat and clinic consultations are available when you need them.</p>
+          )}
+          <button className="btn btn-sm btn-ghost mt-16" onClick={() => navigate('doctors')}>Consult a dermatologist</button>
+        </div>
+      </section>
+
+      <SafetyNotice compact />
     </div>
   );
 }
