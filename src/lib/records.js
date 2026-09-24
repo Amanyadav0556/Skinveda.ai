@@ -15,6 +15,8 @@ export const METRICS = [
   { key: 'redness',      label: 'Redness',      better: 'low',  hint: 'Visible redness; lower is calmer' },
 ];
 
+export const scoreWord = s => (s >= 85 ? 'Excellent' : s >= 72 ? 'Very good' : s >= 60 ? 'Fair' : 'Needs care');
+
 /** Plain-language reading of a metric value, plus whether it needs attention. */
 export function readMetric(key, v) {
   const m = METRICS.find(x => x.key === key);
