@@ -58,4 +58,7 @@ async def health():
     return {"status": "ok", "version": "2.1.0", "service": "SkinVeda.ai API", "model": "DINOv2-v2.1"}
 
 if __name__ == "__main__":
+    # File-change events are unreliable in OneDrive/synced folders; poll so --reload picks up edits
+    import os
+    os.environ.setdefault("WATCHFILES_FORCE_POLLING", "true")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
