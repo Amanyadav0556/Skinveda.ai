@@ -24,7 +24,7 @@ export default function TopBar() {
           <Icon name={dark ? 'sun' : 'moon'} size={18} />
         </button>
         {page !== 'scan' && (
-          <button className="btn btn-primary btn-sm topbar-hide-sm" onClick={() => navigate('scan')}><Icon name="scan" size={16} /> Scan skin</button>
+          <button className="btn btn-primary btn-sm topbar-scan" onClick={() => navigate('scan')}><Icon name="scan" size={16} /> Scan skin</button>
         )}
         <button className="avatar avatar-btn" onClick={() => navigate('profile')} aria-label="Your profile">{initialsOf(user?.name)}</button>
       </div>

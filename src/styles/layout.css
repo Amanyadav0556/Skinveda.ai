@@ -172,3 +172,8 @@
   .topbar-mobile-logo { display: inline-flex; }
   .topbar-title { display: none; }
 }
+
+/* Scan lives in the sidebar on desktop and the bottom bar on phones; the top bar
+   only shows it on tablets, where neither is visible */
+.topbar-scan { display: none; }
+@media (max-width: 1024px) and (min-width: 721px) { .topbar-scan { display: inline-flex; } }

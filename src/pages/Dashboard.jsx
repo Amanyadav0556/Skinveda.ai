@@ -52,7 +52,6 @@ export default function Dashboard() {
           <h1>{greeting}, {firstName(user)}</h1>
           <p>{latest ? `Your last scan was ${timeAgo(latest.timestamp).toLowerCase()}.` : "Let's start with a quick face scan."}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('scan')}><Icon name="scan" size={17} /> Scan skin</button>
       </header>
 
       {!latest ? (
