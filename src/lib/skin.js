@@ -167,7 +167,11 @@ export function buildRoutine(skinType = 'Normal', disease = 'Eczema') {
 }
 
 /* ─── Daily routine completion (per-day; cached locally, synced to the account) ─── */
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// Local calendar day (toISOString() is UTC, which is still "yesterday" in India until 05:30)
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const cacheKey = day => `sv_routine_${day}`;
 const readCache = day => { try { return JSON.parse(localStorage.getItem(cacheKey(day))) || []; } catch { return []; } };
 const writeCache = (day, steps) => { try { localStorage.setItem(cacheKey(day), JSON.stringify(steps)); } catch { /* storage unavailable */ } };
