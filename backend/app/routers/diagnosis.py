@@ -1,6 +1,5 @@
 """SkinVeda.ai — AI Diagnosis Router"""
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
-from datetime import datetime
 import uuid
 from typing import Optional
 from app.config.database import get_pool
@@ -112,6 +111,11 @@ async def get_history(limit: int = 20, skip: int = 0, current_user=Depends(get_c
         uuid.UUID(current_user["id"]), max(0, skip), max(1, min(limit, 100)))
     diagnoses = [{**dict(r), "id": str(r["id"]), "user_id": str(r["user_id"])} for r in rows]
     return {"diagnoses": diagnoses, "total": len(diagnoses)}
+
+@router.delete("/")
+async def clear_history(current_user=Depends(get_current_user)):
+    result = await get_pool().execute("delete from diagnoses where user_id = $1", uuid.UUID(current_user["id"]))
+    return {"message": "Diagnosis history cleared", "deleted": int(result.split()[-1])}
 
 @router.delete("/{diagnosis_id}")
 async def delete_diagnosis(diagnosis_id: str, current_user=Depends(get_current_user)):
