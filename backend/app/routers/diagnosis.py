@@ -5,6 +5,7 @@ import uuid
 from typing import Optional
 from app.config.database import get_pool
 from app.routers.auth import get_current_user
+from app.models.schemas import DiagnosisRecordCreate
 from app.services.ai_service import run_inference
 import cloudinary
 import cloudinary.uploader
@@ -86,6 +87,23 @@ async def analyze_skin(
         "model_version": "SkinVeda-DINOv2-v2.1",
         "disclaimer": "This AI analysis is for informational purposes only and does not replace professional medical diagnosis.",
     }
+
+@router.post("/records", status_code=201)
+async def save_record(data: DiagnosisRecordCreate, current_user=Depends(get_current_user)):
+    """Save an analysis produced in the app to the user's history."""
+    row = await get_pool().fetchrow(
+        """insert into diagnoses (user_id, disease, confidence, risk_level, description, recommendations,
+               symptoms, triggers, body_region, notes, skin_score, metrics, concerns, image_data,
+               ai_model_version, analysis_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+           returning *""",
+        uuid.UUID(current_user["id"]), data.disease, data.confidence, data.risk_level, data.description,
+        data.recommendations, data.symptoms, data.triggers, data.body_region, data.notes,
+        data.skin_score, data.metrics, data.concerns, data.image_data,
+        data.model_version or "SkinVeda-DINOv2-v2.1",
+        data.analysis_id or f"SVD-{uuid.uuid4().hex[:12].upper()}",
+    )
+    return {**dict(row), "id": str(row["id"]), "user_id": str(row["user_id"])}
 
 @router.get("/history")
 async def get_history(limit: int = 20, skip: int = 0, current_user=Depends(get_current_user)):
