@@ -403,3 +403,9 @@
 .pv-acne-care            { --pv-body: color-mix(in srgb, var(--info) 38%, var(--surface)); --pv-cap: var(--info); background: var(--info-bg); }
 .pv-pigmentation-care    { --pv-body: color-mix(in srgb, var(--accent) 60%, var(--surface)); --pv-cap: var(--accent-text); background: var(--accent-soft); }
 .pv-barrier-repair       { --pv-body: color-mix(in srgb, var(--good) 35%, var(--surface)); --pv-cap: var(--good); background: var(--good-bg); }
+
+/* Report hero: stack the score vertically in its narrow column */
+.report-score .score-card { flex-direction: column; text-align: center; gap: 8px; }
+@media (max-width: 1100px) { .report-score .score-card { flex-direction: row; text-align: left; } }
+/* Sponsored label sits bottom-left so it never collides with the category */
+.product-visual .pill-sponsored { top: auto; right: auto; bottom: 10px; left: 10px; }
