@@ -27,7 +27,7 @@ import PublicHeader from './components/PublicHeader';
 import { Icon } from './components/ui';
 import { buildDemoDiagnoses } from './lib/skin';
 import { SAMPLE_MOODS } from './data/mockData';
-import { api, getToken } from './api';
+import { api, getToken, UNAUTHORIZED_EVENT } from './api';
 
 // ── Context ──────────────────────────────────────────────────────────
 /* eslint-disable react-refresh/only-export-components */
@@ -148,15 +148,31 @@ export default function App() {
     login(userData);
   }, [login]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((reason) => {
     setUser(null);
     // Clear cached history too, so the next person on this browser starts clean
     ['sv_user', 'sv_token', 'sv_moods', 'sv_diagnoses', 'sv_progress'].forEach(k => localStorage.removeItem(k));
     setMoodLogs([]); setDiagnoses([]); setProgressPhotos([]); setSelectedDiagnosisId(null);
-    setPage('landing');
-    pushHash('landing');
-    showToast('Logged out successfully', 'info');
+    const expired = reason === 'expired';
+    setPage(expired ? 'login' : 'landing');
+    pushHash(expired ? 'login' : 'landing');
+    showToast(expired ? 'Your session expired — please sign in again' : 'Logged out successfully', expired ? 'warning' : 'info');
   }, [showToast]);
+
+  // Server rejected our token (expired / deleted account) -> sign out
+  useEffect(() => {
+    const onUnauthorized = () => logout('expired');
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, [logout]);
+
+  // On app start, confirm the saved session is still valid and refresh the profile
+  useEffect(() => {
+    if (!getToken()) return;
+    api.me()
+      .then(fresh => setUser(prev => { if (!prev) return prev; const u = { ...prev, ...fresh }; writeLS('sv_user', u); return u; }))
+      .catch(() => { /* 401 is handled by the event above; offline keeps the cached session */ });
+  }, []);
 
   const updateUser = useCallback(async (updates) => {
     let merged = updates;

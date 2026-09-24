@@ -72,7 +72,7 @@ export default function Sidebar() {
               <small>{isPro ? 'Pro member' : 'Free plan'}</small>
             </span>
           </button>
-          <button className="icon-btn" onClick={logout} title="Log out" aria-label="Log out">
+          <button className="icon-btn" onClick={() => logout()} title="Log out" aria-label="Log out">
             <Icon name="logout" size={17} />
           </button>
         </div>

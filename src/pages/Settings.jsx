@@ -153,7 +153,7 @@ export default function Settings() {
                 <Row title="Email" desc={user?.email}><button className="btn btn-ghost btn-sm" onClick={() => showToast('Email change is coming soon', 'info')}>Change</button></Row>
                 <Row title="Password" desc="Last changed — never"><button className="btn btn-ghost btn-sm" onClick={() => navigate('forgot')}>Reset</button></Row>
                 <Row title="Plan" desc={`You’re on the ${plan} plan.`}><button className="btn btn-soft btn-sm" onClick={() => navigate('pricing')}><Icon name="crown" size={15} /> {plan === 'Free' ? 'Upgrade' : 'Manage'}</button></Row>
-                <Row title="Sign out" desc="Sign out of SkinVeda on this device."><button className="btn btn-ghost btn-sm" onClick={logout}><Icon name="logout" size={15} /> Sign out</button></Row>
+                <Row title="Sign out" desc="Sign out of SkinVeda on this device."><button className="btn btn-ghost btn-sm" onClick={() => logout()}><Icon name="logout" size={15} /> Sign out</button></Row>
               </div>
               <div className="card danger-zone">
                 <Row title="Delete account" desc="Permanently remove your account and all data. Contact support to proceed.">
