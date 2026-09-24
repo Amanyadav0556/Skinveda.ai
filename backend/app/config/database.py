@@ -45,6 +45,18 @@ create table if not exists diagnoses (
 );
 create index if not exists diagnoses_user_ts on diagnoses (user_id, timestamp desc);
 
+create table if not exists mood_logs (
+    id        uuid primary key default gen_random_uuid(),
+    user_id   uuid not null references users(id) on delete cascade,
+    mood      text not null,
+    score     int  not null check (score between 1 and 10),
+    notes     text,
+    tags      jsonb not null default '[]',
+    timestamp timestamptz not null default now()
+);
+create index if not exists mood_logs_user_ts on mood_logs (user_id, timestamp desc);
+alter table mood_logs enable row level security;
+
 -- Supabase exposes the public schema through its REST API. Enabling RLS with
 -- no policies blocks that path (password hashes stay private); this backend
 -- connects as the postgres role, which bypasses RLS.
