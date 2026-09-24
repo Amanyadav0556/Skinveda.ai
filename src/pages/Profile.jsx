@@ -23,11 +23,15 @@ export default function Profile() {
   const handleSave = async () => {
     if (!form.name?.trim()) { showToast('Name cannot be empty', 'error'); return; }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 700));
-    updateUser(form);
-    setEditing(false);
-    setSaving(false);
-    showToast('Profile updated', 'success');
+    try {
+      await updateUser(form);
+      setEditing(false);
+      showToast('Profile updated', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancel = () => { setForm({ sensitivities: [], goals: [], ...user }); setEditing(false); };

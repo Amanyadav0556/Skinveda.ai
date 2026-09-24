@@ -60,6 +60,9 @@ const pushHash = p => {
   if (pageFromHash() !== p) window.history.pushState(null, '', target);
 };
 
+// Profile fields the server stores; others (plan, goals, sensitivities) stay local for now
+const SERVER_PROFILE_FIELDS = ['name', 'age', 'gender', 'location', 'skinCondition', 'skinType'];
+
 const TOAST_ICON = { success: 'check', error: 'x', warning: 'alert', info: 'info' };
 
 // ── App ───────────────────────────────────────────────────────────────
@@ -154,8 +157,15 @@ export default function App() {
     showToast('Logged out successfully', 'info');
   }, [showToast]);
 
-  const updateUser = useCallback((updates) => {
-    setUser(prev => { const u = { ...prev, ...updates }; writeLS('sv_user', u); return u; });
+  const updateUser = useCallback(async (updates) => {
+    let merged = updates;
+    const serverPart = Object.fromEntries(Object.entries(updates).filter(([k]) => SERVER_PROFILE_FIELDS.includes(k)));
+    if (getToken() && Object.keys(serverPart).length) {
+      const saved = await api.updateProfile(serverPart);  // throws on failure; nothing changes locally
+      merged = { ...updates, ...saved, streak: undefined, joinedAt: undefined };
+      Object.keys(merged).forEach(k => merged[k] === undefined && delete merged[k]);
+    }
+    setUser(prev => { const u = { ...prev, ...merged }; writeLS('sv_user', u); return u; });
   }, []);
 
   // Mood
