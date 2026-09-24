@@ -4,7 +4,8 @@ import { formatDate } from '../data/mockData';
 import { Icon, PageHeader } from '../components/ui';
 import { initialsOf, useNow } from '../lib/skin';
 
-const SKIN_CONDITIONS = ['Eczema', 'Psoriasis', 'Vitiligo', 'Acne Vulgaris', 'Contact Dermatitis', 'Other'];
+// Visible skincare concerns (not medical conditions)
+const SKIN_CONDITIONS = ['Acne-like spots', 'Pigmentation', 'Dryness', 'Oiliness', 'Redness', 'Uneven texture', 'Not sure yet'];
 const SKIN_TYPES = ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'];
 const SENSITIVITIES = ['Fragrance', 'Sunlight', 'Nickel', 'Dust', 'Latex', 'Essential oils'];
 const GOALS = ['Clear breakouts', 'Deep hydration', 'Even tone', 'Calm redness', 'Smoother texture', 'Healthy ageing'];
@@ -43,7 +44,7 @@ export default function Profile() {
       <PageHeader
         eyebrow="Your account"
         title={<>Profile</>}
-        subtitle="Keep your details current — skin type, concerns and sensitivities all shape your analysis and recommendations."
+        subtitle="Your skin type, goals and sensitivities help personalise your routine until your next scan."
         actions={editing ? <>
           <button className="btn btn-ghost btn-sm" onClick={cancel} disabled={saving}>Cancel</button>
           <button className="btn btn-dark btn-sm" onClick={handleSave} disabled={saving}>{saving ? <><span className="spinner" /> Saving…</> : <><Icon name="check" size={16} /> Save changes</>}</button>
@@ -114,7 +115,7 @@ export default function Profile() {
             </div>
           </div>
           <div className="field">
-            <span className="label">Main concern</span>
+            <span className="label">What you'd most like to improve</span>
             <div className="chip-row">
               {SKIN_CONDITIONS.map(c => (
                 <button key={c} type="button" className={`tag-chip${form.skinCondition === c ? ' active' : ''}`} disabled={!editing} onClick={() => set('skinCondition', c)}>{c}</button>
