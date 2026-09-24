@@ -411,3 +411,6 @@
 .product-visual .pill-sponsored { top: auto; right: auto; bottom: 10px; left: 10px; }
 /* Journey tiles without a photo shouldn't reserve a full square */
 .journey-photo:not(:has(img)) { aspect-ratio: auto; height: 88px; }
+/* Report hero without a stored photo */
+.report-hero.no-photo { grid-template-columns: minmax(0, 1fr) 220px; }
+@media (max-width: 1100px) { .report-hero.no-photo { grid-template-columns: minmax(0, 1fr); } }

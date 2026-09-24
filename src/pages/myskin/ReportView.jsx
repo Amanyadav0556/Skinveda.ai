@@ -27,10 +27,10 @@ export default function ReportView({ scan, prev }) {
       )}
 
       {/* Summary */}
-      <section className="card card-flush report-hero" aria-labelledby="summary-h">
-        <div className="report-photo">
-          {scan.imageData ? <img src={scan.imageData} alt="Photo used for this report" /> : <div className="report-photo-empty"><Icon name="face" size={34} /></div>}
-        </div>
+      <section className={`card card-flush report-hero${scan.imageData ? '' : ' no-photo'}`} aria-labelledby="summary-h">
+        {scan.imageData && (
+          <div className="report-photo"><img src={scan.imageData} alt="Photo used for this report" /></div>
+        )}
         <div className="report-summary">
           <span className="ui-eyebrow" id="summary-h" style={{ marginBottom: 0 }}>Your skin summary</span>
           <h2>{scan.summary}</h2>
