@@ -146,4 +146,21 @@ export const api = {
         image_data: p.imageData, body_region: p.bodyRegion || null, notes: p.notes || null,
     }, 'Could not upload photo')),
     clearPhotos: () => request('DELETE', '/progress/photos', undefined, 'Could not clear photos'),
+
+    // ── Daily routine (day = 'YYYY-MM-DD') ─────────────────────────
+    getRoutine: async (day) => (await request('GET', `/routine/${day}`, undefined, 'Could not load routine')).done_steps,
+    saveRoutine: (day, doneSteps) => request('PUT', `/routine/${day}`, { done_steps: doneSteps }, 'Could not save routine'),
+
+    // ── Account ────────────────────────────────────────────────────
+    me: async () => toAppUser(await request('GET', '/auth/me', undefined, 'Session expired')),
+    updateProfile: async (u) => {
+        const body = {};
+        if (u.name !== undefined) body.name = u.name;
+        if (u.age !== undefined) body.age = u.age === '' || u.age === null ? null : Number(u.age);
+        if (u.gender !== undefined) body.gender = u.gender || null;
+        if (u.location !== undefined) body.location = u.location || null;
+        if (u.skinCondition !== undefined) body.skin_condition = u.skinCondition || null;
+        if (u.skinType !== undefined) body.skin_type = u.skinType || null;
+        return toAppUser(await request('PUT', '/auth/profile', body, 'Could not update profile'));
+    },
 };
