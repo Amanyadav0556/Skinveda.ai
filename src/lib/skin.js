@@ -2,7 +2,8 @@
 // SkinVeda.ai — skin-domain helpers shared across screens
 // (scores, metrics, concern advice, routines, product matching)
 // ============================================================
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api, getToken } from '../api';
 
 export const initialsOf = name =>
   name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
@@ -165,20 +166,36 @@ export function buildRoutine(skinType = 'Normal', disease = 'Eczema') {
   return { am, pm };
 }
 
-/* ─── Daily routine completion (per-day, localStorage) ─────────── */
-const todayKey = () => `sv_routine_${new Date().toISOString().slice(0, 10)}`;
+/* ─── Daily routine completion (per-day; cached locally, synced to the account) ─── */
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const cacheKey = day => `sv_routine_${day}`;
+const readCache = day => { try { return JSON.parse(localStorage.getItem(cacheKey(day))) || []; } catch { return []; } };
+const writeCache = (day, steps) => { try { localStorage.setItem(cacheKey(day), JSON.stringify(steps)); } catch { /* storage unavailable */ } };
 
 export function useRoutineLog() {
-  const [done, setDone] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(todayKey())) || []; } catch { return []; }
-  });
+  const [day] = useState(todayISO);
+  const [done, setDone] = useState(() => readCache(day));
+  const doneRef = useRef(done);
+
+  // Signed-in accounts: pull today's checklist from the server
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    api.getRoutine(day)
+      .then(steps => { if (!cancelled) { doneRef.current = steps; setDone(steps); writeCache(day, steps); } })
+      .catch(() => { /* offline: keep the cached checklist */ });
+    return () => { cancelled = true; };
+  }, [day]);
+
   const toggle = useCallback(id => {
-    setDone(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      try { localStorage.setItem(todayKey(), JSON.stringify(next)); } catch { /* storage unavailable */ }
-      return next;
-    });
-  }, []);
+    const prev = doneRef.current;
+    const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+    doneRef.current = next;
+    setDone(next);
+    writeCache(day, next);
+    if (getToken()) api.saveRoutine(day, next).catch(() => { /* cached locally; next toggle retries */ });
+  }, [day]);
+
   return [done, toggle];
 }
 
