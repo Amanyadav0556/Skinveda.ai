@@ -1,6 +1,6 @@
 """SkinVeda.ai — Pydantic Models"""
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -62,6 +62,31 @@ class DiagnosisResponse(BaseModel):
     ai_model_version: str
     analysis_id: str
     timestamp: datetime
+
+class DiagnosisRecordCreate(BaseModel):
+    """A skin analysis produced in the app, saved to the user's history."""
+    disease: str = Field(..., min_length=1, max_length=100)
+    confidence: float = Field(..., ge=0, le=1)
+    risk_level: Optional[str] = Field(None, max_length=20)
+    description: Optional[str] = Field(None, max_length=2000)
+    recommendations: List[str] = []
+    symptoms: List[str] = []
+    triggers: List[str] = []
+    body_region: Optional[str] = Field(None, max_length=60)
+    notes: Optional[str] = Field(None, max_length=1000)
+    skin_score: Optional[int] = Field(None, ge=0, le=100)
+    metrics: Dict[str, int] = {}
+    concerns: List[Dict[str, Any]] = []
+    image_data: Optional[str] = Field(None, max_length=1_500_000)
+    model_version: Optional[str] = Field(None, max_length=60)
+    analysis_id: Optional[str] = Field(None, max_length=60)
+
+    @field_validator("image_data")
+    @classmethod
+    def must_be_image_data_url(cls, v):
+        if v is not None and not v.startswith("data:image/"):
+            raise ValueError("image_data must be a data:image/... URL")
+        return v
 
 # ── Mood ──────────────────────────────────────────────────────────────
 class MoodType(str, Enum):
