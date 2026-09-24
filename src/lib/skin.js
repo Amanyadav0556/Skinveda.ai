@@ -180,18 +180,24 @@ export function useRoutineLog() {
   const [day] = useState(todayISO);
   const [done, setDone] = useState(() => readCache(day));
   const doneRef = useRef(done);
+  const touched = useRef(false);  // user toggled before the server answered
 
   // Signed-in accounts: pull today's checklist from the server
   useEffect(() => {
     if (!getToken()) return;
     let cancelled = false;
     api.getRoutine(day)
-      .then(steps => { if (!cancelled) { doneRef.current = steps; setDone(steps); writeCache(day, steps); } })
+      .then(steps => {
+        // A late response must not wipe out a tick the user just made
+        if (cancelled || touched.current) return;
+        doneRef.current = steps; setDone(steps); writeCache(day, steps);
+      })
       .catch(() => { /* offline: keep the cached checklist */ });
     return () => { cancelled = true; };
   }, [day]);
 
   const toggle = useCallback(id => {
+    touched.current = true;
     const prev = doneRef.current;
     const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
     doneRef.current = next;
