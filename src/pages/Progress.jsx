@@ -34,18 +34,20 @@ function pickJourney(chrono) {
   return picks.map(s => ({ scan: s, label: `Day ${day(s)}` }));
 }
 
+const toLevel = steps => (!steps?.length ? 0 : steps.length >= 3 ? 2 : 1);
+const cachedLevels = dates => dates.map(d => { try { return toLevel(JSON.parse(localStorage.getItem(`sv_routine_${d}`))); } catch { return 0; } });
+
 function useConsistency(days = 14) {
   const now = useNow();
-  const [levels, setLevels] = useState(null);
+  const dates = useMemo(() => Array.from({ length: days }, (_, i) => isoDay(new Date(now - (days - 1 - i) * DAY))), [now, days]);
+  // Demo/offline: read the local cache right away; signed in: fetch the account's history
+  const [levels, setLevels] = useState(() => (getToken() ? null : cachedLevels(dates)));
   useEffect(() => {
-    const dates = Array.from({ length: days }, (_, i) => isoDay(new Date(now - (days - 1 - i) * DAY)));
-    const toLevel = steps => (!steps?.length ? 0 : steps.length >= 3 ? 2 : 1);
-    const fromCache = () => dates.map(d => { try { return toLevel(JSON.parse(localStorage.getItem(`sv_routine_${d}`))); } catch { return 0; } });
-    if (!getToken()) { setLevels(fromCache()); return; }
+    if (!getToken()) return;
     api.routineHistory(dates[0], dates[dates.length - 1])
       .then(rows => { const map = Object.fromEntries(rows.map(r => [r.day, r.done_steps])); setLevels(dates.map(d => toLevel(map[d]))); })
-      .catch(() => setLevels(fromCache()));
-  }, [now, days]);
+      .catch(() => setLevels(cachedLevels(dates)));
+  }, [dates]);
   return levels;
 }
 
