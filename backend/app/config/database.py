@@ -44,6 +44,11 @@ create table if not exists diagnoses (
     timestamp        timestamptz not null default now()
 );
 create index if not exists diagnoses_user_ts on diagnoses (user_id, timestamp desc);
+-- Fields shown by the redesigned report screens
+alter table diagnoses add column if not exists skin_score int;
+alter table diagnoses add column if not exists metrics    jsonb not null default '{}';
+alter table diagnoses add column if not exists concerns   jsonb not null default '[]';
+alter table diagnoses add column if not exists image_data text;
 
 create table if not exists mood_logs (
     id        uuid primary key default gen_random_uuid(),
