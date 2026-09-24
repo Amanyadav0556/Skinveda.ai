@@ -34,17 +34,20 @@ export const brandsOf = () => [...new Set(PRODUCTS.map(p => p.brand))].sort();
  * Returns null when there is no meaningful match.
  */
 export function explainMatch(product, skinType, concernIds = []) {
-  const matched = concernIds.filter(c => product.concerns.includes(c));
+  const matched = concernIds.filter(c => product.concerns.includes(c)).slice(0, 2);
   const typeOk = skinType && product.skinTypes.includes(skinType);
   if (!matched.length && !typeOk) return null;
-  const ing = product.keyIngredients.map(i => INGREDIENTS[i]?.name).filter(Boolean);
-  const parts = [];
-  if (typeOk && matched.length) parts.push(`your scan suggests ${skinType.toLowerCase()} skin with visible ${matched.map(c => CONCERNS[c].label.toLowerCase()).join(' and ')}`);
-  else if (matched.length) parts.push(`your scan shows visible ${matched.map(c => CONCERNS[c].label.toLowerCase()).join(' and ')}`);
-  else parts.push(`it is formulated for ${skinType.toLowerCase()} skin`);
-  const lead = INGREDIENTS[product.keyIngredients[0]];
-  return `Suggested because ${parts[0]}. It contains ${ing.join(' and ')}${lead ? ` — ${lead.mayHelp.charAt(0).toLowerCase()}${lead.mayHelp.slice(1)}` : '.'}`;
+  const concernText = listJoin(matched.map(c => CONCERNS[c].label.toLowerCase()));
+  const why = matched.length
+    ? `your scan shows ${typeOk ? `${skinType.toLowerCase()} skin with ` : ''}visible ${concernText}`
+    : `it is formulated for ${skinType.toLowerCase()} skin`;
+  // Explain the ingredient most relevant to the matched concern
+  const leadId = product.keyIngredients.find(i => matched.some(c => CONCERNS[c].ingredients.includes(i))) || product.keyIngredients[0];
+  const lead = INGREDIENTS[leadId];
+  return `Suggested because ${why}. It contains ${lead.short}, which ${lead.reason}.`;
 }
+
+const listJoin = xs => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 /**
  * Rank products for a person. Sponsored products are NEVER ranked by

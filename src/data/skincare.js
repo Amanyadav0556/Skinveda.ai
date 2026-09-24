@@ -60,6 +60,8 @@ export const CONCERNS = {
 export const INGREDIENTS = {
   niacinamide: {
     name: 'Niacinamide',
+    short: 'niacinamide',
+    reason: 'is commonly used to help balance oil and even out the look of skin tone',
     mayHelp: 'May help support oil control and improve the look of uneven tone and enlarged-looking pores.',
     skinTypes: ['Oily', 'Combination', 'Normal', 'Dry'],
     usage: 'Morning and/or night after cleansing. 2–5% is usually enough; higher strengths are not always better.',
@@ -67,6 +69,8 @@ export const INGREDIENTS = {
   },
   salicylic: {
     name: 'Salicylic acid (BHA)',
+    short: 'salicylic acid',
+    reason: 'is commonly used in routines for clogged pores',
     mayHelp: 'Oil-soluble exfoliant commonly used for clogged pores and acne-prone skin.',
     skinTypes: ['Oily', 'Combination'],
     usage: '0.5–2%, as a cleanser daily or a leave-on 2–3 nights a week to start.',
@@ -75,6 +79,8 @@ export const INGREDIENTS = {
   },
   ceramides: {
     name: 'Ceramides',
+    short: 'ceramides',
+    reason: 'help the skin barrier hold on to moisture',
     mayHelp: 'Support the skin barrier, helping it hold on to moisture.',
     skinTypes: ['Dry', 'Sensitive', 'Normal', 'Combination', 'Oily'],
     usage: 'In a moisturiser, morning and night.',
@@ -82,6 +88,8 @@ export const INGREDIENTS = {
   },
   hyaluronic: {
     name: 'Hyaluronic acid',
+    short: 'hyaluronic acid',
+    reason: 'draws water into the skin so it feels less tight',
     mayHelp: 'A humectant that draws water into the skin, helping it look plumper and less tight.',
     skinTypes: ['Dry', 'Normal', 'Combination', 'Oily', 'Sensitive'],
     usage: 'Apply to slightly damp skin, then seal with a moisturiser.',
@@ -89,6 +97,8 @@ export const INGREDIENTS = {
   },
   vitaminC: {
     name: 'Vitamin C',
+    short: 'vitamin C',
+    reason: 'is an antioxidant often used for dullness and the look of dark spots',
     mayHelp: 'An antioxidant that may help brighten dullness and the look of dark spots over time.',
     skinTypes: ['Normal', 'Combination', 'Oily', 'Dry'],
     usage: 'Mornings, under sunscreen. Start with a lower strength (around 10%).',
@@ -97,6 +107,8 @@ export const INGREDIENTS = {
   },
   azelaic: {
     name: 'Azelaic acid',
+    short: 'azelaic acid',
+    reason: 'is often chosen for spots, redness and uneven tone on reactive skin',
     mayHelp: 'May help with the look of redness, spots and uneven tone; often suits sensitive skin.',
     skinTypes: ['Sensitive', 'Combination', 'Oily', 'Normal', 'Dry'],
     usage: '10% over-the-counter, once daily; build up slowly.',
@@ -104,6 +116,8 @@ export const INGREDIENTS = {
   },
   sunscreen: {
     name: 'Broad-spectrum sunscreen (SPF 30+)',
+    short: 'broad-spectrum UV filters',
+    reason: 'protect against UV rays that can make dark spots and redness more visible',
     mayHelp: 'Protects against UV, which worsens dark spots, redness and signs of ageing.',
     skinTypes: ['Oily', 'Combination', 'Normal', 'Dry', 'Sensitive'],
     usage: 'Every morning as the last step; reapply every 2–3 hours outdoors.',
@@ -111,6 +125,8 @@ export const INGREDIENTS = {
   },
   centella: {
     name: 'Centella asiatica',
+    short: 'centella asiatica',
+    reason: 'is a soothing extract often used on irritated-looking skin',
     mayHelp: 'A soothing plant extract often used to calm the look of irritated skin.',
     skinTypes: ['Sensitive', 'Dry', 'Normal', 'Combination', 'Oily'],
     usage: 'In a serum or moisturiser, morning or night.',
@@ -118,6 +134,8 @@ export const INGREDIENTS = {
   },
   lactic: {
     name: 'Lactic acid (AHA)',
+    short: 'lactic acid',
+    reason: 'is a gentle exfoliant for rough, dull-looking skin',
     mayHelp: 'A gentle exfoliant that may smooth rough texture and dullness.',
     skinTypes: ['Normal', 'Dry', 'Combination'],
     usage: '5–10%, 1–2 nights a week to start.',
@@ -126,6 +144,8 @@ export const INGREDIENTS = {
   },
   retinoid: {
     name: 'Retinoids (retinol / adapalene)',
+    short: 'a retinoid',
+    reason: 'is commonly used for texture, acne-prone skin and fine lines',
     mayHelp: 'Commonly used for acne-prone skin, texture and fine lines by encouraging cell turnover.',
     skinTypes: ['Oily', 'Combination', 'Normal'],
     usage: 'Pea-sized amount, 2–3 nights a week at first, building up slowly.',
@@ -134,6 +154,8 @@ export const INGREDIENTS = {
   },
   benzoyl: {
     name: 'Benzoyl peroxide',
+    short: 'benzoyl peroxide',
+    reason: 'is commonly used as a spot treatment',
     mayHelp: 'Commonly used as a spot treatment for inflamed, acne-like spots.',
     skinTypes: ['Oily', 'Combination'],
     usage: '2.5% is often as effective as higher strengths; apply thinly to spots.',
@@ -142,6 +164,8 @@ export const INGREDIENTS = {
   },
   caffeine: {
     name: 'Caffeine (eye products)',
+    short: 'caffeine',
+    reason: 'may temporarily reduce the look of puffiness and shadows',
     mayHelp: 'May temporarily reduce the look of puffiness and shadows under the eyes.',
     skinTypes: ['Oily', 'Combination', 'Normal', 'Dry', 'Sensitive'],
     usage: 'Tap a small amount under the eyes, morning and night.',
@@ -149,6 +173,8 @@ export const INGREDIENTS = {
   },
   peptides: {
     name: 'Peptides',
+    short: 'peptides',
+    reason: 'support firmer, smoother-looking skin',
     mayHelp: 'Support skin that looks firmer and smoother; generally gentle.',
     skinTypes: ['Normal', 'Dry', 'Combination', 'Sensitive', 'Oily'],
     usage: 'In a serum or moisturiser, morning or night.',
@@ -156,6 +182,8 @@ export const INGREDIENTS = {
   },
   panthenol: {
     name: 'Panthenol (vitamin B5)',
+    short: 'panthenol',
+    reason: 'hydrates and helps the skin feel comfortable',
     mayHelp: 'Hydrating and soothing; helps the skin feel comfortable.',
     skinTypes: ['Dry', 'Sensitive', 'Normal', 'Combination', 'Oily'],
     usage: 'Morning and night in serums or moisturisers.',
@@ -163,6 +191,8 @@ export const INGREDIENTS = {
   },
   arbutin: {
     name: 'Alpha arbutin',
+    short: 'alpha arbutin',
+    reason: 'is used to gradually fade the look of dark spots',
     mayHelp: 'May help fade the look of dark spots gradually.',
     skinTypes: ['Normal', 'Combination', 'Oily', 'Dry'],
     usage: '1–2%, once or twice daily, with daily sunscreen.',
