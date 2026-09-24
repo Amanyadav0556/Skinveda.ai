@@ -2,79 +2,6 @@
 // SkinVeda.ai — Mock Data & AI Simulation Engine
 // ============================================================
 
-export const DISEASES = [
-  {
-    id: 'eczema',
-    name: 'Eczema',
-    subtitle: 'Atopic Dermatitis',
-    emoji: '🔴',
-    color: '#ef4444',
-    gradient: 'linear-gradient(135deg, #ef4444, #f97316)',
-    description: 'Eczema (atopic dermatitis) is a chronic inflammatory skin condition causing itchy, inflamed, and cracked skin. It often appears in childhood and can persist into adulthood.',
-    triggers: ['Stress', 'Dry weather', 'Allergens', 'Irritants', 'Sweat'],
-    symptoms: ['Intense itching', 'Dry, scaly skin', 'Red or brownish-gray patches', 'Small, raised bumps', 'Thickened, cracked skin'],
-    treatments: ['Moisturize regularly with fragrance-free creams', 'Use mild, unscented soaps', 'Apply prescribed corticosteroid creams', 'Avoid known triggers', 'Take antihistamines for itching'],
-    prevalence: '31.6M people in the US',
-    severeRisk: 'moderate',
-  },
-  {
-    id: 'psoriasis',
-    name: 'Psoriasis',
-    subtitle: 'Chronic Autoimmune',
-    emoji: '🟠',
-    color: '#f97316',
-    gradient: 'linear-gradient(135deg, #f97316, #eab308)',
-    description: 'Psoriasis is a chronic autoimmune condition causing rapid skin cell buildup, forming scales and red patches that can be itchy and sometimes painful.',
-    triggers: ['Stress', 'Cold weather', 'Infections', 'Certain medications', 'Smoking'],
-    symptoms: ['Red patches covered with silvery scales', 'Dry, cracked skin', 'Burning or soreness', 'Thickened, pitted nails', 'Swollen, stiff joints'],
-    treatments: ['Topical corticosteroids', 'Vitamin D analogues', 'Light therapy (phototherapy)', 'Biologic medications', 'Retinoids'],
-    prevalence: '8M people in the US',
-    severeRisk: 'moderate',
-  },
-  {
-    id: 'vitiligo',
-    name: 'Vitiligo',
-    subtitle: 'Depigmentation Disorder',
-    emoji: '⚪',
-    color: '#a78bfa',
-    gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-    description: 'Vitiligo is a condition where skin loses its pigment cells (melanocytes), causing discolored patches in different areas of the body.',
-    triggers: ['UV exposure', 'Stress', 'Skin trauma', 'Autoimmune factors'],
-    symptoms: ['Patchy loss of skin color', 'Premature whitening of hair', 'Loss of color inside the mouth', 'Loss of or change in color of the retina'],
-    treatments: ['Topical corticosteroids', 'Calcineurin inhibitors', 'Light therapy', 'Skin grafting', 'Depigmentation therapy'],
-    prevalence: '2-3M people in the US',
-    severeRisk: 'low',
-  },
-  {
-    id: 'acne',
-    name: 'Acne Vulgaris',
-    subtitle: 'Common Skin Condition',
-    emoji: '🟡',
-    color: '#f59e0b',
-    gradient: 'linear-gradient(135deg, #f59e0b, #10b981)',
-    description: 'Acne vulgaris is a common skin condition that occurs when hair follicles become plugged with oil and dead skin cells, causing pimples, blackheads, or whiteheads.',
-    triggers: ['Hormonal changes', 'Certain medications', 'Diet (dairy, high glycemic)', 'Stress', 'Oily/comedogenic products'],
-    symptoms: ['Whiteheads', 'Blackheads', 'Pimples', 'Large solid lumps (nodules)', 'Painful, pus-filled lumps (cysts)'],
-    treatments: ['Topical retinoids (tretinoin)', 'Benzoyl peroxide', 'Salicylic acid', 'Antibiotics', 'Isotretinoin for severe cases'],
-    prevalence: '50M people in the US',
-    severeRisk: 'low',
-  },
-  {
-    id: 'dermatitis',
-    name: 'Contact Dermatitis',
-    subtitle: 'Allergic Skin Reaction',
-    emoji: '🟤',
-    color: '#10b981',
-    gradient: 'linear-gradient(135deg, #10b981, #3b82f6)',
-    description: 'Contact dermatitis is a red, itchy rash caused by direct contact with a substance that triggers an allergic reaction or irritates the skin.',
-    triggers: ['Detergents', 'Jewelry', 'Cosmetics', 'Plants (poison ivy)', 'Medications'],
-    symptoms: ['Red rash', 'Itching, burning sensation', 'Dry, cracked skin', 'Blisters', 'Swelling'],
-    treatments: ['Avoid contact with irritants', 'Topical corticosteroids', 'Cool compresses', 'Oral antihistamines', 'Calamine lotion'],
-    prevalence: '15M people per year in the US',
-    severeRisk: 'low',
-  },
-];
-
 export const MOODS = [
   { id: 'happy', label: 'Happy', emoji: '😊', score: 9, color: '#f59e0b' },
   { id: 'calm', label: 'Calm', emoji: '😌', score: 7, color: '#10b981' },
@@ -84,13 +11,12 @@ export const MOODS = [
   { id: 'angry', label: 'Angry', emoji: '😠', score: 1, color: '#f97316' },
 ];
 
+// General mind–skin guidance (no personal statistics are implied)
 export const AI_INSIGHTS = [
-  { icon: '🔬', title: 'Pattern Detected', message: 'Your skin flare-ups increase by 42% during high-stress periods. Consider stress-reduction techniques.', type: 'warning' },
-  { icon: '🌤️', title: 'Environmental Alert', message: 'Dry air (humidity < 40%) correlates with increased eczema severity in your history. Use a humidifier.', type: 'info' },
-  { icon: '📈', title: 'Progress Update', message: 'Skin condition improved by 18% this month based on AI analysis of your weekly photos.', type: 'success' },
-  { icon: '💡', title: 'UV Risk', message: 'High UV index forecasted this week. Apply SPF 50+ sunscreen, especially if you have vitiligo.', type: 'warning' },
-  { icon: '🧘', title: 'Wellness Tip', message: 'Your mood scores are highest on days you report exercise. Physical activity correlates with better skin outcomes.', type: 'success' },
-  { icon: '🌙', title: 'Sleep Correlation', message: 'On nights with < 6 hours sleep, your next-day stress score increases by 60%, which may worsen skin symptoms.', type: 'warning' },
+  { icon: 'heart', title: 'Stress and skin', message: 'Stress can make skin feel more reactive and breakouts more likely for some people. Short, regular wind-down breaks can help.', type: 'info' },
+  { icon: 'moon', title: 'Sleep matters', message: 'Skin does much of its repair overnight. A regular sleep routine supports how your skin looks and feels.', type: 'info' },
+  { icon: 'sun', title: 'Weather changes', message: 'Dry air can leave skin feeling tight; heat and humidity can make it shinier. Adjust moisturiser texture with the season.', type: 'info' },
+  { icon: 'trend', title: 'Spot your patterns', message: 'Logging mood alongside weekly scans can help you notice what tends to come before good and bad skin days.', type: 'success' },
 ];
 
 export const SOLACE_RESPONSES = {
@@ -152,11 +78,6 @@ export const ENV_DATA = {
   ],
 };
 
-export const SAMPLE_DIAGNOSES = [
-  { disease: 'Eczema', confidence: 0.89, risk: 'moderate', bodyRegion: 'Inner elbow', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  { disease: 'Psoriasis', confidence: 0.76, risk: 'moderate', bodyRegion: 'Scalp', timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() },
-];
-
 export const SAMPLE_MOODS = [
   { mood: 'calm', score: 7, notes: 'Had a good day', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
   { mood: 'stressed', score: 2, notes: 'Work deadlines causing stress', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
@@ -166,30 +87,6 @@ export const SAMPLE_MOODS = [
   { mood: 'happy', score: 8, notes: 'Skin improving!', timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
   { mood: 'sad', score: 3, notes: 'Bad flare-up', timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() },
 ];
-
-// AI Diagnosis simulation
-export async function simulateAIDiagnosis(imageData) {
-  await new Promise(r => setTimeout(r, 3500));
-  const diseases = ['Eczema', 'Psoriasis', 'Acne Vulgaris', 'Contact Dermatitis', 'Vitiligo'];
-  const disease = diseases[Math.floor(Math.random() * diseases.length)];
-  const confidence = 0.72 + Math.random() * 0.24;
-  const risks = { 'Eczema': 'moderate', 'Psoriasis': 'moderate', 'Acne Vulgaris': 'low', 'Contact Dermatitis': 'low', 'Vitiligo': 'low' };
-  const diseaseFull = DISEASES.find(d => d.name === disease || d.name.includes(disease.split(' ')[0]));
-  const bodyRegions = ['Forearm', 'Inner elbow', 'Back of knee', 'Neck', 'Cheek', 'Chin', 'Scalp', 'Wrist', 'Ankle', 'Chest'];
-
-  return {
-    disease,
-    confidence: parseFloat(confidence.toFixed(2)),
-    risk: risks[disease] || 'moderate',
-    description: diseaseFull?.description || 'AI has detected signs consistent with this skin condition.',
-    recommendations: diseaseFull?.treatments?.slice(0, 4) || [],
-    symptoms: diseaseFull?.symptoms?.slice(0, 4) || [],
-    triggers: diseaseFull?.triggers?.slice(0, 3) || [],
-    bodyRegion: bodyRegions[Math.floor(Math.random() * bodyRegions.length)],
-    modelVersion: 'SkinVeda-DINOv2-v2.1',
-    analysisId: 'SVD-' + Date.now().toString(36).toUpperCase(),
-  };
-}
 
 // Solace AI response
 export function getSolaceResponse(message) {
