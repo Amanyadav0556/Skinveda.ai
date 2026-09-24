@@ -46,7 +46,12 @@ const severity = s => (s >= 70 ? 'noticeable' : s >= 45 ? 'moderate' : 'mild');
 export function normalizeRecord(d) {
   if (!d) return d;
   if (d.version === 2 || (Array.isArray(d.concerns) && d.concerns[0]?.id && d.metrics && 'oiliness' in d.metrics)) {
-    return { version: 2, escalation: { recommended: false, reasons: [] }, quality: [], ...d };
+    return {
+      version: 2, quality: [], ...d,
+      concerns: Array.isArray(d.concerns) ? d.concerns : [],
+      metrics: { hydration: 70, oiliness: 40, texture: 75, pigmentation: 25, redness: 25, ...(d.metrics || {}) },
+      escalation: d.escalation?.reasons ? d.escalation : { recommended: false, reasons: [] },
+    };
   }
   const old = d.metrics || {};
   const metrics = {

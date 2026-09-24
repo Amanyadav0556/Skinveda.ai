@@ -223,7 +223,9 @@ export default function App() {
     let entry = { ...record, id: Date.now(), timestamp: new Date().toISOString() };
     if (getToken()) {
       try {
-        entry = { ...record, ...(await api.saveDiagnosis(record)) };
+        // Keep the full local assessment; take identity fields from the server
+        const saved = await api.saveDiagnosis(record);
+        entry = { ...record, id: saved.id, timestamp: saved.timestamp, analysisId: saved.analysisId };
       } catch (err) {
         entry.unsynced = true;  // keep the report on screen even if saving failed
         showToast(err.message, 'error');
