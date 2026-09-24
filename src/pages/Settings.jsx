@@ -43,10 +43,14 @@ export default function Settings() {
     showToast('Setting saved', 'success');
   };
 
-  const doClear = kind => {
-    clearData(kind);
+  const doClear = async kind => {
     setConfirm(null);
-    showToast(`${kind === 'diagnoses' ? 'Analysis' : kind === 'moods' ? 'Mood' : 'Photo'} history cleared`, 'info');
+    try {
+      await clearData(kind);
+      showToast(`${kind === 'diagnoses' ? 'Analysis' : kind === 'moods' ? 'Mood' : 'Photo'} history cleared`, 'info');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   const exportData = () => {

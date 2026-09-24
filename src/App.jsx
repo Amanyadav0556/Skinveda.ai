@@ -200,7 +200,11 @@ export default function App() {
   }, []);
 
   // Data management
-  const clearData = useCallback((kind) => {
+  const clearData = useCallback(async (kind) => {
+    if (getToken()) {
+      const call = { diagnoses: api.clearDiagnoses, moods: api.clearMoods, progress: api.clearPhotos }[kind];
+      await call();  // throws on failure so local data is kept
+    }
     if (kind === 'diagnoses') { setDiagnoses([]); localStorage.removeItem('sv_diagnoses'); }
     if (kind === 'moods')     { setMoodLogs([]); localStorage.removeItem('sv_moods'); }
     if (kind === 'progress')  { setProgressPhotos([]); localStorage.removeItem('sv_progress'); }
