@@ -92,10 +92,10 @@ export function Icon({ name, size = 20, stroke = 1.7, className, style, fill }) 
 export function LogoMark({ size = 30 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="10" fill="var(--sv-emerald)" />
-      <path d="M9 22c0-7 4.5-12 14-12 0 8.5-5 12-14 12z" fill="var(--sv-sage-pale)" />
-      <path d="M9 22l7.5-7" stroke="var(--sv-emerald)" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="23.5" cy="9" r="2.2" fill="var(--sv-clay)" />
+      <rect width="32" height="32" rx="10" fill="var(--primary)" />
+      <path d="M9 22c0-7 4.5-12 14-12 0 8.5-5 12-14 12z" fill="var(--primary-soft)" />
+      <path d="M9 22l7.5-7" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="23.5" cy="9" r="2.2" fill="var(--accent)" />
     </svg>
   );
 }
@@ -113,14 +113,14 @@ export function Logo({ size = 30, sub }) {
 }
 
 /* ─── Data visuals ─────────────────────────────────────────────── */
-export function ScoreRing({ value, size = 104, stroke = 9, label, color = 'var(--sv-emerald)' }) {
+export function ScoreRing({ value, size = 104, stroke = 9, label, color = 'var(--primary)' }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(100, value || 0));
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="ui-ring" role="img"
       aria-label={label || `Score ${v} out of 100`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--sv-track)" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)}
         transform={`rotate(-90 ${size / 2} ${size / 2})`} className="ui-ring-arc" />
@@ -190,8 +190,8 @@ export function LineChart({ points, height = 200, min, max, unit = '', ariaLabel
         role="img" aria-label={ariaLabel}>
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="var(--sv-emerald)" stopOpacity="0.16" />
-            <stop offset="1" stopColor="var(--sv-emerald)" stopOpacity="0" />
+            <stop offset="0" stopColor="var(--primary)" stopOpacity="0.16" />
+            <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map(t => (
@@ -204,9 +204,9 @@ export function LineChart({ points, height = 200, min, max, unit = '', ariaLabel
           <text key={i} x={x(i)} y={H - 8} className="ui-axis" textAnchor="middle">{p.label}</text>
         ))}
         <path d={area} fill={`url(#${gid})`} />
-        <path d={line} fill="none" stroke="var(--sv-emerald)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         <line x1={x(active)} x2={x(active)} y1={PT} y2={H - PB} className="ui-cross" />
-        <circle cx={x(active)} cy={y(points[active].value)} r="5" fill="var(--sv-emerald)" stroke="var(--sv-paper)" strokeWidth="2" />
+        <circle cx={x(active)} cy={y(points[active].value)} r="5" fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />
       </svg>
       <div className={`ui-tip${edge}`} style={{ left: `${(x(active) / W) * 100}%`, top: y(points[active].value) }}>
         <span>{points[active].label}</span><strong>{format(points[active].value)}{unit}</strong>

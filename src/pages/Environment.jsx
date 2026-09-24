@@ -33,11 +33,11 @@ const CONDITION_TIPS = {
 // Semicircle gauge (0–10)
 function Gauge({ value, tone }) {
   const r = 70, c = Math.PI * r;
-  const col = { good: 'var(--st-good)', warn: '#D39A2A', bad: 'var(--st-bad)' }[tone];
+  const col = { good: 'var(--good)', warn: '#D39A2A', bad: 'var(--bad)' }[tone];
   return (
     <div className="gauge" role="img" aria-label={`Skin risk ${value} of 10`}>
       <svg viewBox="0 0 170 95" width="170" height="95">
-        <path d="M15 85 A70 70 0 0 1 155 85" fill="none" stroke="var(--sv-track)" strokeWidth="12" strokeLinecap="round" />
+        <path d="M15 85 A70 70 0 0 1 155 85" fill="none" stroke="var(--track)" strokeWidth="12" strokeLinecap="round" />
         <path d="M15 85 A70 70 0 0 1 155 85" fill="none" stroke={col} strokeWidth="12" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - value / 10)} style={{ transition: 'stroke-dashoffset 1s' }} />
       </svg>
@@ -89,7 +89,7 @@ export default function Environment() {
             : <div className="callout callout-info"><Icon name="info" size={18} /><div><strong>Personalise this</strong>Add your main concern in Profile for tailored advice.</div></div>}
           <ul className="tip-bullets mt-16" style={{ display: 'grid', gap: 8 }}>
             {['SPF 50 before 10 AM, reapply every 2 hours', 'Cleanse after time outdoors', 'Drink water through the afternoon heat'].map(t => (
-              <li key={t} className="row" style={{ alignItems: 'flex-start', gap: 10, fontSize: 13.5, color: 'var(--sv-ink-2)' }}><Icon name="check" size={15} stroke={2.4} style={{ color: 'var(--sv-emerald)', marginTop: 3, flex: 'none' }} />{t}</li>
+              <li key={t} className="row" style={{ alignItems: 'flex-start', gap: 10, fontSize: 13.5, color: 'var(--text-2)' }}><Icon name="check" size={15} stroke={2.4} style={{ color: 'var(--primary)', marginTop: 3, flex: 'none' }} />{t}</li>
             ))}
           </ul>
         </div>

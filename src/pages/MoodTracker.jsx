@@ -98,7 +98,7 @@ export default function MoodTracker() {
             <div className="card-head">
               <div><h3>90-day pattern</h3><p className="card-sub">Darker = better mood</p></div>
               <div className="heat-legend">Low
-                {[0, 1, 2, 3, 4].map(l => <span key={l} className="heatmap-key" style={{ background: ['var(--sv-track)', '#C9DCD1', '#93B8A5', '#4F8373', 'var(--sv-emerald)'][l] }} />)} High
+                {[0, 1, 2, 3, 4].map(l => <span key={l} className="heatmap-key" style={{ background: ['var(--track)', '#C9DCD1', '#93B8A5', '#4F8373', 'var(--primary)'][l] }} />)} High
               </div>
             </div>
             <div className="heatmap" role="img" aria-label="Mood heatmap for the last 90 days">
