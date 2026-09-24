@@ -2,9 +2,10 @@ import { useApp } from '../App';
 import { Icon, Logo, ScoreRing } from './ui';
 
 const POINTS = [
-  { icon: 'scan',   text: 'Clinical-grade analysis from a single photo' },
-  { icon: 'spark',  text: 'Routines matched to your skin, not an average' },
-  { icon: 'lock',   text: 'Photos encrypted end-to-end, never sold' },
+  { icon: 'scan',   text: 'AI-assisted skin analysis from a single photo' },
+  { icon: 'spark',  text: 'A routine and ingredients matched to your skin' },
+  { icon: 'doctor', text: 'Dermatologists available when you want expert advice' },
+  { icon: 'lock',   text: 'Your photos stay private — delete them anytime' },
 ];
 
 /** Split-screen auth frame: brand panel left, form right. */
@@ -26,11 +27,11 @@ export default function AuthLayout({ title, subtitle, topLink, children }) {
         </div>
         <div style={{ display: 'grid', gap: 22 }}>
           <div className="auth-card-float">
-            <ScoreRing value={86} size={64} stroke={6} color="#A8CBB9" />
+            <ScoreRing value={78} size={64} stroke={6} color="var(--inverse-accent)" />
             <div>
-              <small className="mono" style={{ color: 'rgba(247,244,238,.6)' }}>Skin score</small>
-              <strong>Very good · ▲ 6 this month</strong>
-              <small>Hydration up 12% since your first scan</small>
+              <small className="mono">Example report</small>
+              <strong>Very good · ▲ 5 since last scan</strong>
+              <small>Combination skin · mild pigmentation</small>
             </div>
           </div>
           <ul className="auth-points">
