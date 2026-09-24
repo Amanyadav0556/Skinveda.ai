@@ -83,6 +83,10 @@ export function toAppDiagnosis(d = {}) {
         modelVersion: d.ai_model_version,
         analysisId: d.analysis_id,
         timestamp: d.timestamp,
+        version: d.version || 1,
+        skinType: d.skin_type || undefined,
+        summary: d.summary || undefined,
+        escalation: d.escalation && Object.keys(d.escalation).length ? d.escalation : undefined,
     };
 }
 
@@ -102,6 +106,10 @@ const toApiDiagnosis = (d) => ({
     image_data: d.imageData || null,
     model_version: d.modelVersion || null,
     analysis_id: d.analysisId || null,
+    version: d.version || 1,
+    skin_type: d.skinType || null,
+    summary: d.summary || null,
+    escalation: d.escalation || {},
 });
 
 const toAppPhoto = (p = {}) => ({
