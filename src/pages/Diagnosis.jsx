@@ -3,6 +3,7 @@ import { useApp } from '../App';
 import { simulateAIDiagnosis } from '../data/mockData';
 import { Icon, ScoreRing, Meter, PageHeader, Segmented, Disclaimer } from '../components/ui';
 import { enrichDiagnosis, scoreLabel, severityOf, METRIC_LABELS } from '../lib/skin';
+import { compressFile, compressImage } from '../lib/image';
 
 const BODY_REGIONS = ['Face', 'Neck', 'Scalp', 'Chest', 'Back', 'Forearm', 'Inner elbow', 'Back of knee', 'Hand', 'Leg', 'Ankle', 'Other'];
 
@@ -46,13 +47,15 @@ export default function Diagnosis() {
   };
   useEffect(() => () => streamRef.current?.getTracks().forEach(t => t.stop()), []);
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file || !file.type.startsWith('image/')) { showToast('Please upload a valid image file', 'error'); return; }
-    if (file.size > 10 * 1024 * 1024) { showToast('Image must be under 10 MB', 'error'); return; }
-    const reader = new FileReader();
-    reader.onload = e => setImage(e.target.result);
-    reader.readAsDataURL(file);
+    if (file.size > 20 * 1024 * 1024) { showToast('Image must be under 20 MB', 'error'); return; }
     setResult(null);
+    try {
+      setImage(await compressFile(file));
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   const startCam = async () => {
@@ -69,12 +72,12 @@ export default function Diagnosis() {
     if (m === 'camera') { setImage(null); setResult(null); startCam(); } else stopCam();
   };
 
-  const capture = () => {
+  const capture = async () => {
     const v = videoRef.current;
     const canvas = document.createElement('canvas');
     canvas.width = v.videoWidth; canvas.height = v.videoHeight;
     canvas.getContext('2d').drawImage(v, 0, 0);
-    setImage(canvas.toDataURL('image/jpeg', 0.9));
+    setImage(await compressImage(canvas.toDataURL('image/jpeg', 0.92)));
     stopCam(); setMode('upload');
     showToast('Photo captured', 'success');
   };
@@ -132,7 +135,7 @@ export default function Diagnosis() {
               onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}>
               <span className="dropzone-icon"><Icon name="upload" size={30} /></span>
               <h3>Drop a skin photo here</h3>
-              <p>or <span className="accent" style={{ fontWeight: 700 }}>browse files</span> — JPG, PNG or WEBP up to 10 MB</p>
+              <p>or <span className="accent" style={{ fontWeight: 700 }}>browse files</span> — JPG, PNG or WEBP up to 20 MB</p>
               <div className="chip-row">
                 {['Face', 'Body', 'Close-up'].map(t => <span key={t} className="pill">{t}</span>)}
               </div>
