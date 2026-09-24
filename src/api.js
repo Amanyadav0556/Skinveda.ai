@@ -18,20 +18,34 @@ async function errorMessage(res, fallback) {
     return fallback;
 }
 
-async function post(path, payload, fallback) {
+export const getToken = () => {
+    try { return localStorage.getItem('sv_token'); } catch { return null; }
+};
+
+// Fired when the server rejects our token, so the app can sign the user out.
+export const UNAUTHORIZED_EVENT = 'sv:unauthorized';
+
+async function request(method, path, payload, fallback = 'Request failed') {
+    const token = getToken();
     let res;
     try {
         res = await fetch(`${API_URL}${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            method,
+            headers: {
+                ...(payload !== undefined ? { 'Content-Type': 'application/json' } : {}),
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: payload !== undefined ? JSON.stringify(payload) : undefined,
         });
     } catch {
         throw new Error('Cannot reach the SkinVeda server. Is the backend running on port 8000?');
     }
+    if (res.status === 401 && token) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     if (!res.ok) throw new Error(await errorMessage(res, fallback));
-    return res.json();
+    return res.status === 204 ? null : res.json();
 }
+
+const post = (path, payload, fallback) => request('POST', path, payload, fallback);
 
 // Backend returns snake_case; the app uses camelCase.
 export function toAppUser(u = {}) {
