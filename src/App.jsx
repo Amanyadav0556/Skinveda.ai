@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useCallback, useEffect } from 'react';
+import { useState, createContext, useContext, useCallback, useEffect, useMemo } from 'react';
 import './App.css';
 
 // Pages
@@ -7,13 +7,14 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
-import Diagnosis from './pages/Diagnosis';
-import Results from './pages/Results';
-import Recommendations from './pages/Recommendations';
+import Scan from './pages/Scan';
+import MySkin from './pages/MySkin';
+import Products from './pages/Products';
+import Doctors from './pages/Doctors';
+import Progress from './pages/Progress';
 import MoodTracker from './pages/MoodTracker';
 import SolaceChat from './pages/SolaceChat';
 import Environment from './pages/Environment';
-import Progress from './pages/Progress';
 import Reports from './pages/Reports';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
@@ -23,9 +24,11 @@ import Help from './pages/Help';
 // Components
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
+import BottomNav from './components/BottomNav';
 import PublicHeader from './components/PublicHeader';
 import { Icon } from './components/ui';
-import { buildDemoDiagnoses } from './lib/skin';
+import { normalizeRecord, buildDemoAssessments } from './lib/records';
+import { useTheme } from './lib/theme';
 import { SAMPLE_MOODS } from './data/mockData';
 import { api, getToken, UNAUTHORIZED_EVENT } from './api';
 
@@ -47,17 +50,23 @@ const writeLS = (key, val) => {
 const BARE_PAGES = ['landing', 'login', 'signup', 'forgot'];
 // Reachable without signing in
 const PUBLIC_PAGES = [...BARE_PAGES, 'pricing', 'help'];
+const APP_PAGES = ['dashboard', 'scan', 'my-skin', 'products', 'doctors', 'progress', 'mood', 'solace', 'environment', 'reports', 'profile', 'settings'];
+const ALL_PAGES = [...PUBLIC_PAGES, ...APP_PAGES];
+// Old links keep working
+const ALIASES = { diagnosis: 'scan', results: 'my-skin', recommendations: 'my-skin/routine' };
 
-const ALL_PAGES = [...PUBLIC_PAGES, 'dashboard', 'diagnosis', 'results', 'recommendations', 'mood', 'solace', 'environment', 'progress', 'reports', 'profile', 'settings'];
-
-// Hash routing (#/dashboard) so refresh, back/forward and deep links work
-const pageFromHash = () => {
-  const h = window.location.hash.replace(/^#\/?/, '');
-  return ALL_PAGES.includes(h) ? h : 'landing';
+// Hash routing: #/page or #/page/param (e.g. #/products/p-id, #/my-skin/routine)
+const parseRoute = hash => {
+  let path = hash.replace(/^#\/?/, '');
+  const [head] = path.split('/');
+  if (ALIASES[head]) path = ALIASES[head];
+  const [page, ...rest] = path.split('/');
+  return ALL_PAGES.includes(page) ? { page, param: rest.join('/') || null } : { page: 'landing', param: null };
 };
-const pushHash = p => {
-  const target = p === 'landing' ? window.location.pathname : `#/${p}`;
-  if (pageFromHash() !== p) window.history.pushState(null, '', target);
+const routeFromHash = () => parseRoute(window.location.hash);
+const pushHash = path => {
+  const target = path === 'landing' ? window.location.pathname : `#/${path}`;
+  if (window.location.hash !== `#/${path}`) window.history.pushState(null, '', target);
 };
 
 // Profile fields the server stores; others (plan, goals, sensitivities) stay local for now
@@ -67,16 +76,21 @@ const TOAST_ICON = { success: 'check', error: 'x', warning: 'alert', info: 'info
 
 // ── App ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [page, setPage] = useState(pageFromHash);
+  const [route, setRoute] = useState(routeFromHash);
   const [user, setUser] = useState(() => readLS('sv_user', null));
   const [toasts, setToasts] = useState([]);
   const [navOpen, setNavOpen] = useState(false);
+  const theme = useTheme();
 
   // Persistent data stores
   const [moodLogs, setMoodLogs] = useState(() => readLS('sv_moods', []));
   const [diagnoses, setDiagnoses] = useState(() => readLS('sv_diagnoses', []));
   const [progressPhotos, setProgressPhotos] = useState(() => readLS('sv_progress', []));
-  const [selectedDiagnosisId, setSelectedDiagnosisId] = useState(null);
+  const [appointments, setAppointments] = useState(() => readLS('sv_appointments', []));
+  const [selectedScanId, setSelectedScanId] = useState(null);
+
+  // Every scan in the v2 "visible concerns" shape, newest first
+  const scans = useMemo(() => diagnoses.map(normalizeRecord), [diagnoses]);
 
   // Signed in with a real account (demo mode has no token and stays in the browser)
   const isRemote = !!user && !!getToken();
@@ -85,19 +99,20 @@ export default function App() {
   useEffect(() => {
     if (!user?.email || !getToken()) return;
     let cancelled = false;
-    Promise.all([api.listMoods(), api.listDiagnoses(), api.listPhotos()])
-      .then(([moods, diags, photos]) => {
+    Promise.all([api.listMoods(), api.listDiagnoses(), api.listPhotos(), api.listAppointments()])
+      .then(([moods, diags, photos, appts]) => {
         if (cancelled) return;
         setMoodLogs(moods); writeLS('sv_moods', moods);
         setDiagnoses(diags); writeLS('sv_diagnoses', diags);
         setProgressPhotos(photos); writeLS('sv_progress', photos);
+        setAppointments(appts); writeLS('sv_appointments', appts);
       })
       .catch(err => { if (!cancelled) console.warn('Could not load history from server:', err.message); });
     return () => { cancelled = true; };
   }, [user?.email]);
 
   useEffect(() => {
-    const sync = () => { setPage(pageFromHash()); setNavOpen(false); };
+    const sync = () => { setRoute(routeFromHash()); setNavOpen(false); };
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
   }, []);
@@ -106,20 +121,21 @@ export default function App() {
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3800);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4200);
   }, []);
 
-  // Navigation
-  const navigate = useCallback((p) => {
-    setPage(p);
-    pushHash(p);
+  // Navigation: accepts 'page' or 'page/param'
+  const navigate = useCallback((path) => {
+    const next = parseRoute(`#/${path}`);
+    setRoute(next);
+    pushHash(next.param ? `${next.page}/${next.param}` : next.page);
     setNavOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const openResult = useCallback((id) => {
-    setSelectedDiagnosisId(id);
-    navigate('results');
+  const openScan = useCallback((id) => {
+    setSelectedScanId(id);
+    navigate('my-skin');
   }, [navigate]);
 
   // Auth
@@ -127,7 +143,7 @@ export default function App() {
     const enriched = { ...userData, joinedAt: userData.joinedAt || new Date().toISOString(), streak: userData.streak || 1, role: userData.role || 'user' };
     setUser(enriched);
     writeLS('sv_user', enriched);
-    setPage('dashboard');
+    setRoute({ page: 'dashboard', param: null });
     pushHash('dashboard');
   }, []);
 
@@ -135,7 +151,7 @@ export default function App() {
   const loginDemo = useCallback((userData) => {
     setDiagnoses(prev => {
       if (prev.length) return prev;
-      const seeded = buildDemoDiagnoses();
+      const seeded = buildDemoAssessments();
       writeLS('sv_diagnoses', seeded);
       return seeded;
     });
@@ -151,12 +167,12 @@ export default function App() {
   const logout = useCallback((reason) => {
     setUser(null);
     // Clear cached history too, so the next person on this browser starts clean
-    ['sv_user', 'sv_token', 'sv_moods', 'sv_diagnoses', 'sv_progress'].forEach(k => localStorage.removeItem(k));
-    setMoodLogs([]); setDiagnoses([]); setProgressPhotos([]); setSelectedDiagnosisId(null);
+    ['sv_user', 'sv_token', 'sv_moods', 'sv_diagnoses', 'sv_progress', 'sv_appointments'].forEach(k => localStorage.removeItem(k));
+    setMoodLogs([]); setDiagnoses([]); setProgressPhotos([]); setAppointments([]); setSelectedScanId(null);
     const expired = reason === 'expired';
-    setPage(expired ? 'login' : 'landing');
+    setRoute({ page: expired ? 'login' : 'landing', param: null });
     pushHash(expired ? 'login' : 'landing');
-    showToast(expired ? 'Your session expired — please sign in again' : 'Logged out successfully', expired ? 'warning' : 'info');
+    showToast(expired ? 'Your session expired — please sign in again' : "You've been signed out", expired ? 'warning' : 'info');
   }, [showToast]);
 
   // Server rejected our token (expired / deleted account) -> sign out
@@ -201,23 +217,32 @@ export default function App() {
     }
   }, [showToast]);
 
-  // Diagnosis
-  const addDiagnosis = useCallback(async (d) => {
-    let entry = { ...d, id: Date.now(), timestamp: new Date().toISOString() };
+  // Scans
+  const saveScan = useCallback(async (assessment) => {
+    const record = { ...assessment, disease: assessment.concerns?.[0]?.name || 'No strong concerns' };
+    let entry = { ...record, id: Date.now(), timestamp: new Date().toISOString() };
     if (getToken()) {
       try {
-        entry = { ...d, ...(await api.saveDiagnosis(d)) };
+        entry = { ...record, ...(await api.saveDiagnosis(record)) };
       } catch (err) {
-        // Keep the result on screen even if saving failed
-        entry.unsynced = true;
+        entry.unsynced = true;  // keep the report on screen even if saving failed
         showToast(err.message, 'error');
       }
     }
     setDiagnoses(prev => { const n = [entry, ...prev]; writeLS('sv_diagnoses', n); return n; });
-    return entry;
+    setSelectedScanId(entry.id);
+    return normalizeRecord(entry);
   }, [showToast]);
 
-  // Progress
+  const updateScanNote = useCallback(async (id, notes) => {
+    if (getToken() && typeof id === 'string' && id.length === 36) {
+      try { await api.saveScanNote(id, notes); } catch (err) { showToast(err.message, 'error'); throw err; }
+    }
+    setDiagnoses(prev => { const n = prev.map(d => (d.id === id ? { ...d, notes } : d)); writeLS('sv_diagnoses', n); return n; });
+    showToast('Note saved', 'success');
+  }, [showToast]);
+
+  // Progress photos
   const addProgressPhoto = useCallback(async (p) => {
     const entry = getToken()
       ? await api.addPhoto(p)  // throws on failure; caller reports it
@@ -225,6 +250,30 @@ export default function App() {
     setProgressPhotos(prev => { const n = [entry, ...prev]; writeLS('sv_progress', n); return n; });
     return entry;
   }, []);
+
+  // Dermatologist consultations
+  const bookAppointment = useCallback(async (a) => {
+    try {
+      const entry = getToken()
+        ? await api.bookAppointment(a)
+        : { ...a, id: `local-${Date.now()}`, status: 'requested', createdAt: new Date().toISOString() };
+      setAppointments(prev => { const n = [entry, ...prev]; writeLS('sv_appointments', n); return n; });
+      return entry;
+    } catch (err) {
+      showToast(err.message, 'error');
+      throw err;
+    }
+  }, [showToast]);
+
+  const cancelAppointment = useCallback(async (id) => {
+    try {
+      const updated = getToken() && !String(id).startsWith('local-') ? await api.cancelAppointment(id) : { status: 'cancelled' };
+      setAppointments(prev => { const n = prev.map(a => (a.id === id ? { ...a, ...updated, status: 'cancelled' } : a)); writeLS('sv_appointments', n); return n; });
+      showToast('Consultation request cancelled', 'info');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [showToast]);
 
   // Data management
   const clearData = useCallback(async (kind) => {
@@ -237,66 +286,67 @@ export default function App() {
     if (kind === 'progress')  { setProgressPhotos([]); localStorage.removeItem('sv_progress'); }
   }, []);
 
+  // Auth guard — signed-out users only reach public pages
+  const current = !user && !PUBLIC_PAGES.includes(route.page) ? 'login' : route.page;
 
-  // Context value
   const ctx = {
-    page, navigate, user, login, loginDemo, logout, updateUser,
-    showToast, moodLogs, addMoodLog,
-    diagnoses, addDiagnosis, selectedDiagnosisId, openResult,
-    progressPhotos, addProgressPhoto, clearData,
-    navOpen, setNavOpen, isRemote,
+    page: current, routeParam: route.param, navigate, user, login, loginDemo, logout, updateUser,
+    showToast, theme, isRemote, navOpen, setNavOpen,
+    moodLogs, addMoodLog,
+    scans, saveScan, openScan, selectedScanId, updateScanNote,
+    // legacy names still used by Mood/Reports/Profile/Settings
+    diagnoses: scans, progressPhotos, addProgressPhoto, clearData,
+    appointments, bookAppointment, cancelAppointment,
   };
 
-  // Auth guard — signed-out users only reach public pages
-  const current = !user && !PUBLIC_PAGES.includes(page) ? 'login' : page;
-
-  // Page renderer
   const renderPage = () => {
     switch (current) {
-      case 'landing':         return <Landing />;
-      case 'login':           return <Login />;
-      case 'signup':          return <Signup />;
-      case 'forgot':          return <ForgotPassword />;
-      case 'dashboard':       return <Dashboard />;
-      case 'diagnosis':       return <Diagnosis />;
-      case 'results':         return <Results />;
-      case 'recommendations': return <Recommendations />;
-      case 'mood':            return <MoodTracker />;
-      case 'solace':          return <SolaceChat />;
-      case 'environment':     return <Environment />;
-      case 'progress':        return <Progress />;
-      case 'reports':         return <Reports />;
-      case 'profile':         return <Profile />;
-      case 'settings':        return <Settings />;
-      case 'pricing':         return <Pricing />;
-      case 'help':            return <Help />;
-      default:                return <Landing />;
+      case 'landing':     return <Landing />;
+      case 'login':       return <Login />;
+      case 'signup':      return <Signup />;
+      case 'forgot':      return <ForgotPassword />;
+      case 'dashboard':   return <Dashboard />;
+      case 'scan':        return <Scan />;
+      case 'my-skin':     return <MySkin />;
+      case 'products':    return <Products />;
+      case 'doctors':     return <Doctors />;
+      case 'progress':    return <Progress />;
+      case 'mood':        return <MoodTracker />;
+      case 'solace':      return <SolaceChat />;
+      case 'environment': return <Environment />;
+      case 'reports':     return <Reports />;
+      case 'profile':     return <Profile />;
+      case 'settings':    return <Settings />;
+      case 'pricing':     return <Pricing />;
+      case 'help':        return <Help />;
+      default:            return <Landing />;
     }
   };
 
-  const isBare = BARE_PAGES.includes(current);
-
+  const pageKey = `${current}/${route.param || ''}`;
   let content;
-  if (isBare) content = renderPage();
+  if (BARE_PAGES.includes(current)) content = <div id="main">{renderPage()}</div>;
   else if (user) content = (
     <div className={`app-shell${navOpen ? ' nav-open' : ''}`}>
       <Sidebar />
       <div className="app-scrim" onClick={() => setNavOpen(false)} />
       <div className="app-main">
         <TopBar />
-        <main className="app-page" key={current}>{renderPage()}</main>
+        <main id="main" className="app-page" key={pageKey} tabIndex={-1}>{renderPage()}</main>
       </div>
+      <BottomNav />
     </div>
   );
   else content = (
     <div className="public-shell">
       <PublicHeader />
-      <main className="public-page" key={current}>{renderPage()}</main>
+      <main id="main" className="public-page" key={pageKey} tabIndex={-1}>{renderPage()}</main>
     </div>
   );
 
   return (
     <AppContext.Provider value={ctx}>
+      <a className="skip-link" href="#main" onClick={e => { e.preventDefault(); document.getElementById('main')?.focus(); }}>Skip to content</a>
       <div className="toast-stack" role="status" aria-live="polite">
         {toasts.map(t => (
           <div key={t.id} className={`toast toast-${t.type}`}>
