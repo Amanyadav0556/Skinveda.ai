@@ -112,6 +112,11 @@ const toApiDiagnosis = (d) => ({
     escalation: d.escalation || {},
 });
 
+const toAppAppointment = (a = {}) => ({
+    id: a.id, doctorId: a.doctor_id, doctorName: a.doctor_name, mode: a.mode, slot: a.slot,
+    fee: a.fee, notes: a.notes, scanId: a.scan_id, status: a.status, createdAt: a.created_at,
+});
+
 const toAppPhoto = (p = {}) => ({
     id: p.id, imageData: p.image_data, bodyRegion: p.body_region, notes: p.notes, timestamp: p.timestamp,
 });
@@ -158,6 +163,17 @@ export const api = {
     // ── Daily routine (day = 'YYYY-MM-DD') ─────────────────────────
     getRoutine: async (day) => (await request('GET', `/routine/${day}`, undefined, 'Could not load routine')).done_steps,
     saveRoutine: (day, doneSteps) => request('PUT', `/routine/${day}`, { done_steps: doneSteps }, 'Could not save routine'),
+
+    // ── Dermatologist consultations ────────────────────────────────
+    listAppointments: async () =>
+        (await request('GET', '/appointments/', undefined, 'Could not load consultations')).appointments.map(toAppAppointment),
+    bookAppointment: async (a) => toAppAppointment(await request('POST', '/appointments/', {
+        doctor_id: a.doctorId, doctor_name: a.doctorName, mode: a.mode, slot: a.slot,
+        fee: a.fee ?? null, notes: a.notes || null,
+        scan_id: typeof a.scanId === 'string' && a.scanId.length === 36 ? a.scanId : null,
+    }, 'Could not request this consultation')),
+    cancelAppointment: async (id) =>
+        toAppAppointment(await request('POST', `/appointments/${id}/cancel`, undefined, 'Could not cancel')),
 
     // ── Account ────────────────────────────────────────────────────
     me: async () => toAppUser(await request('GET', '/auth/me', undefined, 'Session expired')),
