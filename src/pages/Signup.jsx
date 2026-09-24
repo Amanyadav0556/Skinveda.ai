@@ -4,7 +4,8 @@ import { api } from '../api';
 import AuthLayout from '../components/AuthLayout';
 import { Icon } from '../components/ui';
 
-const SKIN_CONDITIONS = ['Eczema', 'Psoriasis', 'Vitiligo', 'Acne Vulgaris', 'Contact Dermatitis', 'Other / Not Sure'];
+// Visible skincare concerns (not medical conditions)
+const SKIN_CONDITIONS = ['Acne-like spots', 'Pigmentation', 'Dryness', 'Oiliness', 'Redness', 'Uneven texture', 'Not sure yet'];
 const SKIN_TYPES = ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'];
 const GENDERS = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
 
@@ -90,7 +91,7 @@ export default function Signup() {
 
   return (
     <AuthLayout
-      title={<>Join 10,000+ people caring for skin, <em>smarter.</em></>}
+      title={<>Start understanding your skin, <em>today.</em></>}
       subtitle="Three quick steps and your first AI skin analysis is ready to go."
       topLink={<>Already a member? <button onClick={() => navigate('login')}>Sign in</button></>}
     >
@@ -199,7 +200,7 @@ export default function Signup() {
               </div>
             </div>
             <div className="field">
-              <span className="label">Main concern</span>
+              <span className="label">What would you most like to improve?</span>
               <div className="option-grid">
                 {SKIN_CONDITIONS.map(c => (
                   <button type="button" key={c} className={`option${form.skinCondition === c ? ' active' : ''}`} onClick={() => update('skinCondition', c)}>
@@ -210,7 +211,7 @@ export default function Signup() {
             </div>
             <label className="check mt-16">
               <input type="checkbox" checked={form.diagnosedBefore} onChange={e => update('diagnosedBefore', e.target.checked)} />
-              A dermatologist has diagnosed this condition before
+              I'm currently seeing a dermatologist for my skin
             </label>
           </>
         )}
