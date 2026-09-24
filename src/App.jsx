@@ -27,6 +27,7 @@ import PublicHeader from './components/PublicHeader';
 import { Icon } from './components/ui';
 import { buildDemoDiagnoses } from './lib/skin';
 import { SAMPLE_MOODS } from './data/mockData';
+import { api, getToken } from './api';
 
 // ── Context ──────────────────────────────────────────────────────────
 /* eslint-disable react-refresh/only-export-components */
@@ -73,6 +74,24 @@ export default function App() {
   const [diagnoses, setDiagnoses] = useState(() => readLS('sv_diagnoses', []));
   const [progressPhotos, setProgressPhotos] = useState(() => readLS('sv_progress', []));
   const [selectedDiagnosisId, setSelectedDiagnosisId] = useState(null);
+
+  // Signed in with a real account (demo mode has no token and stays in the browser)
+  const isRemote = !!user && !!getToken();
+
+  // Load the account's history from the server after sign-in / on reload
+  useEffect(() => {
+    if (!user?.email || !getToken()) return;
+    let cancelled = false;
+    Promise.all([api.listMoods(), api.listDiagnoses(), api.listPhotos()])
+      .then(([moods, diags, photos]) => {
+        if (cancelled) return;
+        setMoodLogs(moods); writeLS('sv_moods', moods);
+        setDiagnoses(diags); writeLS('sv_diagnoses', diags);
+        setProgressPhotos(photos); writeLS('sv_progress', photos);
+      })
+      .catch(err => { if (!cancelled) console.warn('Could not load history from server:', err.message); });
+    return () => { cancelled = true; };
+  }, [user?.email]);
 
   useEffect(() => {
     const sync = () => { setPage(pageFromHash()); setNavOpen(false); };
@@ -172,7 +191,7 @@ export default function App() {
     showToast, moodLogs, addMoodLog,
     diagnoses, addDiagnosis, selectedDiagnosisId, openResult,
     progressPhotos, addProgressPhoto, clearData,
-    navOpen, setNavOpen,
+    navOpen, setNavOpen, isRemote,
   };
 
   // Auth guard — signed-out users only reach public pages
