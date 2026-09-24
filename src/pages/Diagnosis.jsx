@@ -95,9 +95,9 @@ export default function Diagnosis() {
       setProgress(100); setStepIdx(PIPELINE.length);
       res.bodyRegion = bodyRegion || res.bodyRegion;
       res.imageData = image;
-      const saved = addDiagnosis(enrichDiagnosis(res));
+      const saved = await addDiagnosis(enrichDiagnosis(res));
       setResult(saved);
-      showToast('Analysis complete', 'success');
+      showToast(saved.unsynced ? 'Analysis complete — not saved to your account yet' : 'Analysis complete', saved.unsynced ? 'warning' : 'success');
     } catch { showToast('Analysis failed. Please try again.', 'error'); }
     setAnalyzing(false);
   };

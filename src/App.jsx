@@ -175,11 +175,20 @@ export default function App() {
   }, [showToast]);
 
   // Diagnosis
-  const addDiagnosis = useCallback((d) => {
-    const entry = { ...d, id: Date.now(), timestamp: new Date().toISOString() };
+  const addDiagnosis = useCallback(async (d) => {
+    let entry = { ...d, id: Date.now(), timestamp: new Date().toISOString() };
+    if (getToken()) {
+      try {
+        entry = { ...d, ...(await api.saveDiagnosis(d)) };
+      } catch (err) {
+        // Keep the result on screen even if saving failed
+        entry.unsynced = true;
+        showToast(err.message, 'error');
+      }
+    }
     setDiagnoses(prev => { const n = [entry, ...prev]; writeLS('sv_diagnoses', n); return n; });
     return entry;
-  }, []);
+  }, [showToast]);
 
   // Progress
   const addProgressPhoto = useCallback((p) => {
