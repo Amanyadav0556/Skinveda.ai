@@ -1,6 +1,7 @@
 """SkinVeda.ai — AI Diagnosis Router"""
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 import uuid
+from pydantic import BaseModel, Field
 from typing import Optional
 from app.config.database import get_pool
 from app.routers.auth import get_current_user
@@ -112,6 +113,23 @@ async def get_history(limit: int = 20, skip: int = 0, current_user=Depends(get_c
         uuid.UUID(current_user["id"]), max(0, skip), max(1, min(limit, 100)))
     diagnoses = [{**dict(r), "id": str(r["id"]), "user_id": str(r["user_id"])} for r in rows]
     return {"diagnoses": diagnoses, "total": len(diagnoses)}
+
+class NotesUpdate(BaseModel):
+    notes: Optional[str] = Field(None, max_length=1000)
+
+@router.patch("/{diagnosis_id}/notes")
+async def update_notes(diagnosis_id: str, data: NotesUpdate, current_user=Depends(get_current_user)):
+    """Let the user keep a short journal note on a scan (e.g. 'started niacinamide')."""
+    try:
+        did = uuid.UUID(diagnosis_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    row = await get_pool().fetchrow(
+        "update diagnoses set notes = $3 where id = $1 and user_id = $2 returning id, notes",
+        did, uuid.UUID(current_user["id"]), (data.notes or "").strip() or None)
+    if not row:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"id": str(row["id"]), "notes": row["notes"]}
 
 @router.delete("/")
 async def clear_history(current_user=Depends(get_current_user)):
