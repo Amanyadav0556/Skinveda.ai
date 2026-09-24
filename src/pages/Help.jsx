@@ -3,14 +3,16 @@ import { useApp } from '../App';
 import { Icon, Segmented } from '../components/ui';
 
 const FAQ = [
-  { cat: 'Analysis', q: 'How accurate is the AI skin analysis?', a: 'Our DINOv2-based model reaches 98.2% accuracy on our held-out clinical validation set across five conditions. Real-world results depend on photo quality, so follow the lighting tips on the scan screen. Every result shows a confidence score so you know how certain the model is.' },
-  { cat: 'Analysis', q: 'Is SkinVeda a replacement for a dermatologist?', a: 'No. SkinVeda provides AI-assisted insights to help you understand and track your skin. It is not a medical device and does not diagnose disease. If a result shows a “Likely” finding, or symptoms persist, please see a qualified dermatologist — you can share your report with them.' },
-  { cat: 'Analysis', q: 'How should I take a photo for the best result?', a: 'Use natural, even daylight (face a window), keep the area in focus 15–30 cm away, remove makeup, and avoid filters. Scanning at the same time and angle each week makes progress comparisons much more reliable.' },
-  { cat: 'Privacy', q: 'Who can see my skin photos?', a: 'Only you. Photos are encrypted in transit and at rest, never sold, and never used for training unless you explicitly opt in under Settings → Privacy. You can export or delete your data at any time.' },
-  { cat: 'Privacy', q: 'Can I delete my data?', a: 'Yes. Go to Settings → Privacy & data to clear analysis history, mood logs or photos instantly. To delete your whole account, contact support and we’ll remove everything within 30 days.' },
-  { cat: 'Billing', q: 'Can I cancel Pro anytime?', a: 'Yes — cancel anytime from Settings → Account. You keep Pro until the end of your billing period, and there’s a 14-day money-back guarantee on your first payment.' },
-  { cat: 'Billing', q: 'Is there a plan for clinics?', a: 'Yes. The Clinic plan lets dermatologists manage up to 50 patient profiles, review scans and share reports. Contact us below for a demo.' },
-  { cat: 'Routine', q: 'Why are products shown as generic names?', a: 'We recommend formulations and key ingredients rather than brands, so you can choose any product that matches — and so our advice stays independent. Look for the key ingredient on the label.' },
+  { cat: 'Analysis', q: 'How does the skin analysis work?', a: 'The scan measures visible properties of your photo — colour, brightness and fine texture across areas of your face — and estimates concerns such as acne-like spots, pigmentation, dryness, oiliness and redness. The current version is a preview model based on explainable image measurements, not a medical device. Every report shows a confidence level, and unclear photos are flagged so you can retake them.' },
+  { cat: 'Analysis', q: 'Is SkinVeda a replacement for a dermatologist?', a: 'No. SkinVeda provides AI-assisted skincare guidance and does not replace professional medical diagnosis. If a concern looks extensive, is changing quickly, or our assessment is uncertain, we will suggest speaking with a qualified dermatologist.' },
+  { cat: 'Analysis', q: 'How should I take a photo for the best result?', a: 'Face a window in daylight, keep your face centred in the oval, remove makeup and glasses, and avoid filters. Scanning at the same time and angle each week makes your progress comparisons much more reliable.' },
+  { cat: 'Analysis', q: 'Why do you sometimes suggest seeing a dermatologist?', a: 'We suggest it when a concern looks extensive, when you tell us something is worsening quickly or a spot is painful, bleeding or changing, or when our assessment is uncertain. It is a suggestion, never a diagnosis — the choice is always yours.' },
+  { cat: 'Privacy', q: 'Who can see my skin photos?', a: 'Only you. Photos are stored privately in your account and are never sold. You can delete your scans, photos and history at any time from Settings → Privacy & data.' },
+  { cat: 'Privacy', q: 'Can I delete my data?', a: 'Yes. Settings → Privacy & data lets you clear scans, mood logs or photos instantly. To delete your whole account, contact support.' },
+  { cat: 'Products', q: 'Do I have to buy products?', a: 'No. Buying products is always optional. Your routine lists the ingredient to look for in each step, so you can use products you already own or choose any brand.' },
+  { cat: 'Products', q: 'Are product suggestions sponsored?', a: 'SkinVeda’s suggestions are ranked only by how well a product matches your skin, and each one explains why. If a brand pays for a placement, it is shown separately with a clear “Sponsored” label and is never ranked by our recommendations.' },
+  { cat: 'Products', q: 'Are the products and doctors real?', a: 'In this version, the product catalogue and dermatologist profiles are clearly labelled sample data so you can try the experience. Consultation requests are demo requests. They are built to be replaced by a verified catalogue and doctor directory.' },
+  { cat: 'Billing', q: 'Can I cancel a paid plan anytime?', a: 'Yes — cancel anytime from Settings → Account. You keep your plan until the end of the billing period.' },
 ];
 
 const TRUST = [
@@ -57,7 +59,7 @@ export default function Help() {
         <div>
           <div className="row-between wrap" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 22, letterSpacing: '-.03em', fontWeight: 800 }}>Frequently asked</h2>
-            <Segmented size="sm" value={cat} onChange={v => { setCat(v); setOpen(-1); }} options={['All', 'Analysis', 'Privacy', 'Billing', 'Routine']} />
+            <Segmented size="sm" value={cat} onChange={v => { setCat(v); setOpen(-1); }} options={['All', 'Analysis', 'Privacy', 'Products', 'Billing']} />
           </div>
           <div className="faq">
             {items.length === 0 && <div className="card"><p className="muted" style={{ textAlign: 'center' }}>No questions match “{query}”. Try another word or message us.</p></div>}
@@ -124,15 +126,15 @@ export default function Help() {
 
       <section className="card card-dark about-band" style={{ marginTop: 18, padding: 'clamp(24px, 4vw, 44px)', borderRadius: 28 }}>
         <div>
-          <span className="mono" style={{ color: '#F0A58C' }}>About SkinVeda</span>
+          <span className="mono" style={{ color: 'var(--inverse-accent)' }}>About SkinVeda</span>
           <h2 style={{ marginTop: 10 }}>Ancient care, <em>modern intelligence.</em></h2>
-          <p>“Veda” means knowledge. SkinVeda began as a hackathon project with one goal: help people living with chronic skin conditions stop guessing. We combine computer vision, dermatology research and mental-wellbeing support so anyone can understand their skin — and feel good in it.</p>
+          <p>“Veda” means knowledge. SkinVeda began as a hackathon project with one goal: help people stop guessing about their skin. We combine AI-assisted skin analysis, ingredient education and access to dermatologists so anyone can build a routine that suits them.</p>
         </div>
         <div className="about-values">
-          <div><b>98.2%</b><small>Model accuracy on validation set</small></div>
-          <div><b>10K+</b><small>People tracking their skin</small></div>
-          <div><b>5</b><small>Conditions screened today</small></div>
-          <div><b>0</b><small>Photos ever sold</small></div>
+          <div><b>You decide</b><small>Products and consultations are always optional</small></div>
+          <div><b>Explained</b><small>Every suggestion says why</small></div>
+          <div><b>Labelled</b><small>Sponsored content is always marked</small></div>
+          <div><b>Private</b><small>Your photos are never sold</small></div>
         </div>
       </section>
     </>
