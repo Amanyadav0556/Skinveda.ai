@@ -191,9 +191,12 @@ export default function App() {
   }, [showToast]);
 
   // Progress
-  const addProgressPhoto = useCallback((p) => {
-    const entry = { ...p, id: Date.now() + Math.random(), timestamp: new Date().toISOString() };
+  const addProgressPhoto = useCallback(async (p) => {
+    const entry = getToken()
+      ? await api.addPhoto(p)  // throws on failure; caller reports it
+      : { ...p, id: Date.now() + Math.random(), timestamp: new Date().toISOString() };
     setProgressPhotos(prev => { const n = [entry, ...prev]; writeLS('sv_progress', n); return n; });
+    return entry;
   }, []);
 
   // Data management

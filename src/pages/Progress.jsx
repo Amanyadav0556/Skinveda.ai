@@ -3,6 +3,7 @@ import { useApp } from '../App';
 import { formatDate, timeAgo, MONTHS } from '../data/mockData';
 import { Icon, Meter, LineChart, PageHeader, Segmented, EmptyState, CompareSlider } from '../components/ui';
 import { enrichDiagnosis, METRIC_LABELS } from '../lib/skin';
+import { compressFile } from '../lib/image';
 
 const REGIONS = ['Face', 'Neck', 'Forearm', 'Inner elbow', 'Back of knee', 'Chest', 'Back', 'Scalp', 'Hand', 'Leg'];
 
@@ -60,20 +61,22 @@ export default function Progress() {
   ];
   const nextIdx = milestones.findIndex(m => !m.reached);
 
-  const onFiles = e => {
+  const onFiles = async e => {
     const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+    e.target.value = '';
     if (!files.length) return;
     setUploading(true);
-    let pending = files.length;
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        addProgressPhoto({ imageData: ev.target.result, bodyRegion: region, notes: '' });
-        if (--pending === 0) { setUploading(false); showToast(`${files.length} photo${files.length > 1 ? 's' : ''} added to your timeline`, 'success'); }
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+    let added = 0;
+    for (const file of files) {
+      try {
+        await addProgressPhoto({ imageData: await compressFile(file), bodyRegion: region, notes: '' });
+        added++;
+      } catch (err) {
+        showToast(`${file.name}: ${err.message}`, 'error');
+      }
+    }
+    setUploading(false);
+    if (added) showToast(`${added} photo${added > 1 ? 's' : ''} added to your timeline`, 'success');
   };
 
   const toggleSelect = id => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s.slice(-1), id]));
