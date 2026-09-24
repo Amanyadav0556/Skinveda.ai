@@ -151,6 +151,7 @@ export const api = {
     saveDiagnosis: async (d) =>
         toAppDiagnosis(await request('POST', '/diagnosis/records', toApiDiagnosis(d), 'Could not save analysis')),
     clearDiagnoses: () => request('DELETE', '/diagnosis/', undefined, 'Could not clear analyses'),
+    saveScanNote: (id, notes) => request('PATCH', `/diagnosis/${id}/notes`, { notes }, 'Could not save note'),
 
     // ── Progress photos ────────────────────────────────────────────
     listPhotos: async () =>
@@ -163,6 +164,8 @@ export const api = {
     // ── Daily routine (day = 'YYYY-MM-DD') ─────────────────────────
     getRoutine: async (day) => (await request('GET', `/routine/${day}`, undefined, 'Could not load routine')).done_steps,
     saveRoutine: (day, doneSteps) => request('PUT', `/routine/${day}`, { done_steps: doneSteps }, 'Could not save routine'),
+    routineHistory: async (start, end) =>
+        (await request('GET', `/routine/?start=${start}&end=${end}`, undefined, 'Could not load routine history')).days,
 
     // ── Dermatologist consultations ────────────────────────────────
     listAppointments: async () =>
