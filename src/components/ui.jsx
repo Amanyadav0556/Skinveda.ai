@@ -67,6 +67,15 @@ const PATHS = {
   chevron:  'M9 6l6 6-6 6',
   chevDown: 'M6 9l6 6 6-6',
   award:    'M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 14l-1.5 7 5-3 5 3-1.5-7',
+  doctor:   'M6 3v5a4 4 0 0 0 8 0V3M10 12v3a5 5 0 0 0 10 0v-2M20 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  bag:      'M5 8h14l-1 12H6L5 8zM9 8V6a3 3 0 0 1 6 0v2',
+  pin:      'M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  video:    'M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zM16 10l5-3v10l-5-3',
+  filter:   'M4 5h16M7 12h10M10 19h4',
+  face:     'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0',
+  save:     'M6 3h10l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 3v5h8M8 21v-7h8v7',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
+  language: 'M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 4-3 7-7 8M13 21l4-9 4 9M14.5 18h5',
 };
 
 export function Icon({ name, size = 20, stroke = 1.7, className, style, fill }) {
@@ -303,7 +312,7 @@ export function Disclaimer({ compact }) {
   return (
     <div className={`ui-disclaimer${compact ? ' compact' : ''}`}>
       <Icon name="shield" size={16} />
-      <span>AI-assisted insights for information only — not a medical diagnosis. Consult a dermatologist for clinical advice.</span>
+      <span>SkinVeda.ai provides AI-assisted skincare guidance and does not replace professional medical diagnosis.</span>
     </div>
   );
 }
