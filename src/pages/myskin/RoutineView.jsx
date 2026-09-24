@@ -3,6 +3,7 @@ import { Icon, Meter } from '../../components/ui';
 import { RoutineStep, SafetyNotice } from '../../components/skin';
 import { buildRoutine } from '../../lib/routine';
 import { useRoutineLog } from '../../lib/skin';
+import { CONCERNS } from '../../data/skincare';
 
 function RoutineCard({ kind, steps, done, toggle }) {
   const count = steps.filter(s => done.includes(s.id)).length;
@@ -33,7 +34,7 @@ export default function RoutineView({ skinType, concerns }) {
       <div className="callout callout-info">
         <Icon name="spark" size={18} />
         <div>
-          <strong>Built for {skinType.toLowerCase()} skin{concerns.length ? ` with ${concerns.slice(0, 2).map(c => c.replace(/([A-Z])/g, ' $1').toLowerCase()).join(' and ')}` : ''}</strong>
+          <strong>Built for {skinType.toLowerCase()} skin{concerns.length ? ` with ${concerns.slice(0, 2).map(c => CONCERNS[c]?.label.toLowerCase() || c).join(' and ')}` : ''}</strong>
           Tick steps as you go — your checklist syncs across your devices.
         </div>
       </div>
