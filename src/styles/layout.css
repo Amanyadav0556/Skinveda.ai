@@ -165,3 +165,10 @@
   .otp input { height: 52px; font-size: 20px; }
   .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Mobile logo in the top bar (sidebar is hidden on small screens) */
+.topbar-mobile-logo { display: none; }
+@media (max-width: 720px) {
+  .topbar-mobile-logo { display: inline-flex; }
+  .topbar-title { display: none; }
+}

@@ -2,79 +2,58 @@ import { useApp } from '../App';
 import { Icon, Logo } from './ui';
 import { initialsOf } from '../lib/skin';
 
-const NAV = [
-  { group: 'Overview', items: [
-    { id: 'dashboard',       label: 'Dashboard',       icon: 'home' },
-  ]},
-  { group: 'Skin', items: [
-    { id: 'diagnosis',       label: 'Skin Analysis',   icon: 'scan', badge: 'AI' },
-    { id: 'results',         label: 'Results',         icon: 'file' },
-    { id: 'recommendations', label: 'Recommendations', icon: 'spark' },
-    { id: 'progress',        label: 'Progress',        icon: 'trend' },
-  ]},
-  { group: 'Wellbeing', items: [
-    { id: 'mood',            label: 'Mood Tracker',    icon: 'smile' },
-    { id: 'solace',          label: 'Solace AI',       icon: 'chat' },
-    { id: 'environment',     label: 'Environment',     icon: 'sun' },
-  ]},
-  { group: 'Account', items: [
-    { id: 'reports',         label: 'Reports',         icon: 'chart' },
-    { id: 'profile',         label: 'Profile',         icon: 'user' },
-    { id: 'settings',        label: 'Settings',        icon: 'settings' },
-  ]},
+const PRIMARY_NAV = [
+  { id: 'dashboard', label: 'Home',     icon: 'home' },
+  { id: 'my-skin',   label: 'My Skin',  icon: 'face' },
+  { id: 'products',  label: 'Products', icon: 'bag' },
+  { id: 'doctors',   label: 'Doctors',  icon: 'doctor' },
+  { id: 'progress',  label: 'Progress', icon: 'trend' },
+];
+
+const MORE_NAV = [
+  { id: 'mood',        label: 'Mood & stress', icon: 'smile' },
+  { id: 'solace',      label: 'Solace AI',     icon: 'chat' },
+  { id: 'environment', label: 'UV & weather',  icon: 'sun' },
+  { id: 'reports',     label: 'Reports',       icon: 'file' },
 ];
 
 export default function Sidebar() {
   const { page, navigate, user, logout } = useApp();
-  const isPro = user?.plan === 'pro' || user?.plan === 'clinic';
+
+  const item = n => (
+    <button key={n.id} className={`nav-item${page === n.id ? ' active' : ''}`}
+      aria-current={page === n.id ? 'page' : undefined} onClick={() => navigate(n.id)}>
+      <Icon name={n.icon} size={18} /><span>{n.label}</span>
+    </button>
+  );
 
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <button className="sidebar-brand" onClick={() => navigate('dashboard')} aria-label="Go to dashboard">
-        <Logo size={32} />
+      <button className="sidebar-brand" onClick={() => navigate('dashboard')} aria-label="SkinVeda home"><Logo size={32} /></button>
+      <button className={`btn btn-primary btn-block sidebar-cta${page === 'scan' ? ' active' : ''}`} onClick={() => navigate('scan')}>
+        <Icon name="scan" size={17} /> Scan skin
       </button>
 
       <nav className="sidebar-nav">
-        {NAV.map(section => (
-          <div key={section.group} className="sidebar-group">
-            <div className="sidebar-label">{section.group}</div>
-            {section.items.map(item => (
-              <button key={item.id}
-                className={`nav-item${page === item.id ? ' active' : ''}`}
-                aria-current={page === item.id ? 'page' : undefined}
-                onClick={() => navigate(item.id)}>
-                <Icon name={item.icon} size={18} />
-                <span>{item.label}</span>
-                {item.badge && <em className="nav-badge">{item.badge}</em>}
-              </button>
-            ))}
-          </div>
-        ))}
+        <div className="sidebar-group">{PRIMARY_NAV.map(item)}</div>
+        <div className="sidebar-group">
+          <div className="sidebar-label">More</div>
+          {MORE_NAV.map(item)}
+        </div>
       </nav>
 
       <div className="sidebar-bottom">
-        {!isPro && (
-          <div className="sidebar-upgrade">
-            <span className="sidebar-upgrade-icon"><Icon name="crown" size={16} /></span>
-            <strong>SkinVeda Pro</strong>
-            <p>Unlimited scans, full reports and expert-reviewed plans.</p>
-            <button className="btn btn-dark btn-sm btn-block" onClick={() => navigate('pricing')}>Upgrade</button>
-          </div>
-        )}
-        <button className={`nav-item${page === 'help' ? ' active' : ''}`} onClick={() => navigate('help')}>
-          <Icon name="help" size={18} /><span>Help &amp; support</span>
-        </button>
+        {item({ id: 'help', label: 'Help & safety', icon: 'help' })}
+        {item({ id: 'settings', label: 'Settings', icon: 'settings' })}
         <div className="sidebar-user">
-          <button className="sidebar-user-main" onClick={() => navigate('profile')}>
+          <button className="sidebar-user-main" onClick={() => navigate('profile')} aria-label="Your profile">
             <span className="avatar">{initialsOf(user?.name)}</span>
             <span className="sidebar-user-info">
-              <strong>{user?.name || 'User'}</strong>
-              <small>{isPro ? 'Pro member' : 'Free plan'}</small>
+              <strong>{user?.name || 'You'}</strong>
+              <small>View profile</small>
             </span>
           </button>
-          <button className="icon-btn" onClick={() => logout()} title="Log out" aria-label="Log out">
-            <Icon name="logout" size={17} />
-          </button>
+          <button className="icon-btn" onClick={() => logout()} title="Sign out" aria-label="Sign out"><Icon name="logout" size={17} /></button>
         </div>
       </div>
     </aside>
