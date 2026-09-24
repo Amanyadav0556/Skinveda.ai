@@ -59,7 +59,7 @@ export function buildRoutine(skinType = 'Normal', concerns = []) {
     'If you wear heavy makeup or water-resistant sunscreen, cleanse twice.'));
 
   const treat = {
-    acne: sensitive
+    acne: sensitive || dry
       ? step('pm-treat', 'Treat', 'Azelaic acid', 'azelaic', 'A gentler option for acne-like spots on reactive skin.', 'Every other night to start, then nightly if comfortable')
       : step('pm-treat', 'Treat', 'Salicylic acid (BHA) serum', 'salicylic', 'Commonly used for clogged pores and acne-like spots.', '2–3 nights a week to start'),
     pigmentation: step('pm-treat', 'Treat', 'Azelaic acid or alpha arbutin', 'azelaic', 'May help fade the look of dark spots gradually.', 'Nightly, building up slowly'),
@@ -67,7 +67,7 @@ export function buildRoutine(skinType = 'Normal', concerns = []) {
     texture: sensitive || dry
       ? step('pm-treat', 'Treat', 'Gentle lactic acid (AHA)', 'lactic', 'May smooth rough texture with a gentle exfoliant.', '1 night a week to start')
       : step('pm-treat', 'Treat', 'Lactic acid (AHA)', 'lactic', 'May smooth rough texture and dullness.', '1–2 nights a week'),
-    fineLines: sensitive
+    fineLines: sensitive || dry
       ? step('pm-treat', 'Treat', 'Peptide serum', 'peptides', 'A gentle option that supports firmer-looking skin.', 'Nightly')
       : step('pm-treat', 'Treat', 'Retinol (start low)', 'retinoid', 'Commonly used to soften the look of fine lines over time.', '2 nights a week to start'),
     darkCircles: step('pm-treat', 'Treat', 'Caffeine eye serum', 'caffeine', 'May reduce the look of puffiness and shadows.', 'Nightly (and mornings if you like)'),
