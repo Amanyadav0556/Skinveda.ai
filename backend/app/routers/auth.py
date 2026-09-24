@@ -14,7 +14,7 @@ from app.config.settings import settings
 from app.models.schemas import UserCreate, UserLogin, UserUpdate, UserResponse, TokenResponse
 
 router = APIRouter()
-bearer = HTTPBearer()
+bearer = HTTPBearer(auto_error=False)  # we raise 401 ourselves (FastAPI's default is 403)
 logger = logging.getLogger("skinveda.auth")
 
 USER_COLUMNS = "id, name, email, age, gender, location, skin_condition, skin_type, role, streak, joined_at"
@@ -40,7 +40,9 @@ def fmt_user(row) -> dict:
     u.pop("password", None)
     return u
 
-async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
+async def get_current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    if creds is None:
+        raise HTTPException(status_code=401, detail="Not signed in", headers={"WWW-Authenticate": "Bearer"})
     try:
         payload = jwt.decode(creds.credentials, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         user_id = uuid.UUID(payload.get("sub", ""))
