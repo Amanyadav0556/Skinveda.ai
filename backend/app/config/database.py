@@ -90,6 +90,30 @@ alter table users enable row level security;
 alter table diagnoses enable row level security;
 """
 
+# Errors meaning the pooled connection died (Supabase/network closed it while idle).
+# The query never ran, so retrying once on a fresh connection is safe.
+_DEAD_CONNECTION = (asyncpg.ConnectionDoesNotExistError, asyncpg.InterfaceError, ConnectionResetError, OSError)
+
+class _RetryingPool:
+    """Wraps asyncpg.Pool: retries a query once if its connection was dropped."""
+    def __init__(self, inner: asyncpg.Pool):
+        self._inner = inner
+
+    async def _run(self, method: str, *args):
+        for attempt in (1, 2):
+            try:
+                return await getattr(self._inner, method)(*args)
+            except _DEAD_CONNECTION as e:
+                if attempt == 2:
+                    raise
+                logger.warning(f"DB connection dropped ({type(e).__name__}); retrying once")
+
+    async def fetch(self, *args):    return await self._run("fetch", *args)
+    async def fetchrow(self, *args): return await self._run("fetchrow", *args)
+    async def fetchval(self, *args): return await self._run("fetchval", *args)
+    async def execute(self, *args):  return await self._run("execute", *args)
+    def acquire(self):               return self._inner.acquire()
+
 async def _init_connection(conn):
     import json
     await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
@@ -101,8 +125,10 @@ async def connect_db():
         return
     try:
         # statement_cache_size=0 keeps this compatible with Supabase's pgbouncer pooler
+        # max_inactive_connection_lifetime: recycle idle connections before the server drops them
         pool = await asyncpg.create_pool(settings.DATABASE_URL, min_size=1, max_size=5,
-                                         statement_cache_size=0, init=_init_connection, timeout=15)
+                                         statement_cache_size=0, init=_init_connection, timeout=15,
+                                         max_inactive_connection_lifetime=60)
         async with pool.acquire() as conn:
             await conn.execute(SCHEMA)
         logger.info("✅ Connected to PostgreSQL (Supabase); schema ready")
@@ -116,7 +142,7 @@ async def close_db():
         await pool.close()
         logger.info("Database pool closed")
 
-def get_pool() -> asyncpg.Pool:
+def get_pool() -> _RetryingPool:
     if pool is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=DB_UNAVAILABLE)
-    return pool
+    return _RetryingPool(pool)
