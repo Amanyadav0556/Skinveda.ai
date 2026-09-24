@@ -150,8 +150,9 @@ export default function App() {
 
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('sv_user');
-    localStorage.removeItem('sv_token');
+    // Clear cached history too, so the next person on this browser starts clean
+    ['sv_user', 'sv_token', 'sv_moods', 'sv_diagnoses', 'sv_progress'].forEach(k => localStorage.removeItem(k));
+    setMoodLogs([]); setDiagnoses([]); setProgressPhotos([]); setSelectedDiagnosisId(null);
     setPage('landing');
     pushHash('landing');
     showToast('Logged out successfully', 'info');
