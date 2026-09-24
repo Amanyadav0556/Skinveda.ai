@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../App';
-import { AI_INSIGHTS, MOODS, ENV_DATA, formatDate } from '../data/mockData';
-import { Icon, Logo, PageHeader, Segmented, EmptyState, Disclaimer } from '../components/ui';
-import { enrichDiagnosis, guideFor, useNow } from '../lib/skin';
+import { MOODS, ENV_DATA, formatDate } from '../data/mockData';
+import { Icon, Logo, PageHeader, Segmented } from '../components/ui';
+import { SafetyNotice } from '../components/skin';
+import { useNow } from '../lib/skin';
+import { buildRoutine } from '../lib/routine';
 
 export default function Reports() {
   const { user, moodLogs, diagnoses, progressPhotos } = useApp();
   const [period, setPeriod] = useState('weekly');
-  const [generating, setGenerating] = useState(false);
-  const [generatedFor, setGeneratedFor] = useState(null);
   const now = useNow();
 
   const start = useMemo(() => {
@@ -18,44 +18,31 @@ export default function Reports() {
   }, [period]);
 
   const inPeriod = x => new Date(x.timestamp) >= start;
-  const scans = diagnoses.filter(inPeriod).map(enrichDiagnosis);
+  const scans = diagnoses.filter(inPeriod);
   const moods = moodLogs.filter(inPeriod);
   const photos = progressPhotos.filter(inPeriod);
   const avgScore = scans.length ? Math.round(scans.reduce((s, d) => s + d.skinScore, 0) / scans.length) : null;
   const avgMood = moods.length ? (moods.reduce((s, m) => s + (MOODS.find(x => x.id === m.mood)?.score || 5), 0) / moods.length).toFixed(1) : null;
   const stressDays = moods.filter(m => ['stressed', 'anxious', 'angry'].includes(m.mood)).length;
-  const primary = scans[0]?.disease || diagnoses[0]?.disease || user?.skinCondition;
-  const guide = guideFor(primary);
+  const latest = scans[0] || diagnoses[0];
+  const primary = latest?.concerns?.[0]?.name;
+  const tips = buildRoutine(latest?.skinType || user?.skinType || 'Normal', latest?.concerns?.map(c => c.id) || []).tips;
+  // How often each visible concern appeared in this period
+  const concernCounts = Object.values(scans.flatMap(s => s.concerns.slice(0, 3)).reduce((acc, c) => {
+    acc[c.id] = acc[c.id] || { name: c.name, n: 0, total: 0 }; acc[c.id].n++; acc[c.id].total += c.score; return acc;
+  }, {})).sort((a, b) => b.n - a.n);
   const label = period === 'weekly' ? 'Last 7 days' : 'Last 30 days';
-
-  const generate = async () => {
-    setGenerating(true);
-    await new Promise(r => setTimeout(r, 1400));
-    setGenerating(false);
-    setGeneratedFor(period);
-  };
-
-  const ready = generatedFor === period;
 
   return (
     <>
-      <PageHeader eyebrow="Reports" title={<>Your health <em>report</em></>}
-        subtitle="A clean summary of your scans, mood and environment — ready to share with a dermatologist."
+      <PageHeader eyebrow="Reports" title='Your skin report summary'
+        subtitle="A printable summary of your scans, routine and wellbeing — useful to share with a dermatologist."
         actions={<>
           <Segmented value={period} onChange={setPeriod} options={[{ value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]} />
-          {ready
-            ? <button className="btn btn-dark btn-sm" onClick={() => window.print()}><Icon name="download" size={16} /> Save as PDF</button>
-            : <button className="btn btn-dark btn-sm" onClick={generate} disabled={generating}>{generating ? <><span className="spinner" /> Generating…</> : <><Icon name="spark" size={16} /> Generate</>}</button>}
+          <button className="btn btn-primary btn-sm" onClick={() => window.print()}><Icon name="download" size={16} /> Save as PDF</button>
         </>}
       />
 
-      {!ready ? (
-        <div className="card">
-          <EmptyState icon="file" title={generating ? 'Compiling your report…' : `Generate your ${period} report`}
-            text="We’ll combine your analyses, mood check-ins and local conditions into a single shareable document."
-            action={!generating && <button className="btn btn-dark" onClick={generate}><Icon name="spark" size={16} /> Generate report</button>} />
-        </div>
-      ) : (
         <article className="card report-doc">
           <header className="report-doc-head">
             <div>
@@ -65,7 +52,7 @@ export default function Reports() {
             </div>
             <ul className="rows soft" style={{ minWidth: 240 }}>
               <li><span>Report ID</span><b>RPT-{now.toString(36).slice(-6).toUpperCase()}</b></li>
-              <li><span>Skin type</span><b>{user?.skinType || '—'}</b></li>
+              <li><span>Skin type (estimate)</span><b>{latest?.skinType || user?.skinType || '—'}</b></li>
               <li><span>Main concern</span><b>{primary || '—'}</b></li>
             </ul>
           </header>
@@ -85,11 +72,11 @@ export default function Reports() {
             {scans.length ? (
               <div className="table-scroll">
                 <table className="history-table">
-                  <thead><tr><th>Date</th><th>Finding</th><th>Area</th><th>Confidence</th><th>Score</th></tr></thead>
+                  <thead><tr><th>Date</th><th>Main visible concern</th><th>Areas</th><th>Confidence</th><th>Score</th></tr></thead>
                   <tbody>
                     {scans.map(d => (
                       <tr key={d.id} style={{ cursor: 'default' }}>
-                        <td>{formatDate(d.timestamp)}</td><td>{d.disease}</td><td className="muted">{d.bodyRegion}</td>
+                        <td>{formatDate(d.timestamp)}</td><td>{d.concerns[0]?.name || 'None strong'}</td><td className="muted">{d.concerns[0]?.areas?.join(', ') || '—'}</td>
                         <td className="num">{Math.round(d.confidence * 100)}%</td><td className="num">{d.skinScore}</td>
                       </tr>
                     ))}
@@ -121,25 +108,23 @@ export default function Reports() {
           </section>
 
           <section className="report-section">
-            <h4>AI insights</h4>
-            {AI_INSIGHTS.slice(0, 3).map(i => (
-              <div className="insight" key={i.title}>
-                <span className={`insight-icon${i.type === 'warning' ? ' clay' : ''}`}><Icon name={i.type === 'warning' ? 'alert' : 'trend'} size={16} /></span>
-                <div><strong>{i.title}</strong><p>{i.message}</p></div>
-              </div>
-            ))}
+            <h4>Visible concerns this period</h4>
+            {concernCounts.length ? (
+              <ul className="rows soft">
+                {concernCounts.map(c => <li key={c.name}><span>{c.name}</span><b>{c.n} scan{c.n > 1 ? 's' : ''} · avg visibility {Math.round(c.total / c.n)}</b></li>)}
+              </ul>
+            ) : <p className="muted">No scans in this period.</p>}
           </section>
 
           <section className="report-section">
-            <h4>Recommendations</h4>
+            <h4>Routine reminders</h4>
             <ol className="next-steps">
-              {guide.tips.slice(0, 3).map(t => <li key={t}><div>{t}</div></li>)}
+              {tips.slice(0, 3).map(t => <li key={t}><div>{t}</div></li>)}
             </ol>
           </section>
 
-          <Disclaimer />
+          <SafetyNotice />
         </article>
-      )}
     </>
   );
 }
