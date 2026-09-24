@@ -11,7 +11,7 @@ from jose import JWTError, jwt
 
 from app.config.database import get_pool
 from app.config.settings import settings
-from app.models.schemas import UserCreate, UserLogin, UserResponse, TokenResponse
+from app.models.schemas import UserCreate, UserLogin, UserUpdate, UserResponse, TokenResponse
 
 router = APIRouter()
 bearer = HTTPBearer()
@@ -83,15 +83,21 @@ async def login(data: UserLogin):
 async def get_me(current_user=Depends(get_current_user)):
     return current_user
 
-@router.put("/profile")
-async def update_profile(updates: dict, current_user=Depends(get_current_user)):
-    allowed = ["name", "age", "gender", "location", "skin_condition", "skin_type"]
-    fields = [k for k in allowed if k in updates]
-    if fields:
-        sets = ", ".join(f"{k} = ${i + 2}" for i, k in enumerate(fields))
-        await get_pool().execute(f"update users set {sets} where id = $1",
-                                 uuid.UUID(current_user["id"]), *[updates[k] for k in fields])
-    return {"message": "Profile updated successfully"}
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(updates: UserUpdate, current_user=Depends(get_current_user)):
+    fields = updates.model_dump(exclude_unset=True)
+    if "gender" in fields and fields["gender"] is not None:
+        fields["gender"] = fields["gender"].value
+    if "name" in fields and fields["name"]:
+        fields["name"] = fields["name"].strip()
+    if not fields:
+        return current_user
+    keys = list(fields)
+    sets = ", ".join(f"{k} = ${i + 2}" for i, k in enumerate(keys))
+    row = await get_pool().fetchrow(
+        f"update users set {sets} where id = $1 returning {USER_COLUMNS}",
+        uuid.UUID(current_user["id"]), *[fields[k] for k in keys])
+    return fmt_user(row)
 
 @router.post("/logout")
 async def logout(current_user=Depends(get_current_user)):

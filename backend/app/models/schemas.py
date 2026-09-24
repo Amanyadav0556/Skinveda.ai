@@ -20,6 +20,14 @@ class UserCreate(BaseModel):
     skin_condition: Optional[str] = None
     skin_type: Optional[str] = None
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    age: Optional[int] = Field(None, ge=10, le=120)
+    gender: Optional[Gender] = None
+    location: Optional[str] = Field(None, max_length=100)
+    skin_condition: Optional[str] = Field(None, max_length=60)
+    skin_type: Optional[str] = Field(None, max_length=30)
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
