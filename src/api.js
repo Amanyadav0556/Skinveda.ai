@@ -104,6 +104,10 @@ const toApiDiagnosis = (d) => ({
     analysis_id: d.analysisId || null,
 });
 
+const toAppPhoto = (p = {}) => ({
+    id: p.id, imageData: p.image_data, bodyRegion: p.body_region, notes: p.notes, timestamp: p.timestamp,
+});
+
 function saveToken(data) {
     try { if (data?.access_token) localStorage.setItem('sv_token', data.access_token); } catch { /* storage unavailable */ }
 }
@@ -134,4 +138,12 @@ export const api = {
     saveDiagnosis: async (d) =>
         toAppDiagnosis(await request('POST', '/diagnosis/records', toApiDiagnosis(d), 'Could not save analysis')),
     clearDiagnoses: () => request('DELETE', '/diagnosis/', undefined, 'Could not clear analyses'),
+
+    // ── Progress photos ────────────────────────────────────────────
+    listPhotos: async () =>
+        (await request('GET', '/progress/photos', undefined, 'Could not load photos')).photos.map(toAppPhoto),
+    addPhoto: async (p) => toAppPhoto(await request('POST', '/progress/photos', {
+        image_data: p.imageData, body_region: p.bodyRegion || null, notes: p.notes || null,
+    }, 'Could not upload photo')),
+    clearPhotos: () => request('DELETE', '/progress/photos', undefined, 'Could not clear photos'),
 };
