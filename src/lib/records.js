@@ -112,7 +112,7 @@ export function buildDemoAssessments(now = Date.now()) {
       concerns,
       mainConcern: concerns[0].id,
       disease: concerns[0].name,
-      summary: `Your skin appears combination with ${concerns[0].severity} ${concerns[0].name.toLowerCase()} on the chin and forehead, and ${concerns[1] ? concerns[1].severity + ' ' + concerns[1].name.toLowerCase() : 'no other strong concerns'}.`,
+      summary: `Your skin appears combination with ${concerns.slice(0, 2).map(c => `${c.severity} ${c.name.toLowerCase()} on the ${c.areas.map(x => x.toLowerCase()).join(' and ')}`).join(', and ')}.`,
       escalation: { recommended: false, reasons: [] },
       quality: [],
       modelVersion: MODEL_VERSION,
