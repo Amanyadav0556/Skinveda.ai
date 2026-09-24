@@ -394,3 +394,12 @@
   .dropzone { min-height: 300px; }
   .pd-visual { height: 240px; }
 }
+
+/* Product illustration tones (token-based, work in both themes) */
+.pv-cleanser             { --pv-body: color-mix(in srgb, var(--primary) 38%, var(--surface)); --pv-cap: var(--primary); background: var(--primary-wash); }
+.pv-serum                { --pv-body: color-mix(in srgb, var(--accent) 45%, var(--surface)); --pv-cap: var(--accent-text); background: var(--accent-soft); }
+.pv-moisturiser          { --pv-body: color-mix(in srgb, var(--sage) 55%, var(--surface)); --pv-cap: var(--primary); background: var(--surface-2); }
+.pv-sunscreen            { --pv-body: color-mix(in srgb, var(--warn) 40%, var(--surface)); --pv-cap: var(--warn); background: var(--warn-bg); }
+.pv-acne-care            { --pv-body: color-mix(in srgb, var(--info) 38%, var(--surface)); --pv-cap: var(--info); background: var(--info-bg); }
+.pv-pigmentation-care    { --pv-body: color-mix(in srgb, var(--accent) 60%, var(--surface)); --pv-cap: var(--accent-text); background: var(--accent-soft); }
+.pv-barrier-repair       { --pv-body: color-mix(in srgb, var(--good) 35%, var(--surface)); --pv-cap: var(--good); background: var(--good-bg); }
