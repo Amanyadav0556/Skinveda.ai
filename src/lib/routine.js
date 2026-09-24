@@ -97,6 +97,15 @@ export function ingredientPlan(skinType, concerns = []) {
     (INGREDIENT_MAP[c] || []).forEach(ing => { counts[ing] = (counts[ing] || 0) + weight; });
   });
   counts.sunscreen = (counts.sunscreen || 0) + 5; // everyone
+  // Everyday essentials for the skin type, so healthy-looking skin still gets guidance
+  const BASELINE = {
+    Oily: ['niacinamide', 'hyaluronic', 'salicylic'],
+    Combination: ['niacinamide', 'hyaluronic', 'ceramides'],
+    Normal: ['hyaluronic', 'ceramides', 'vitaminC'],
+    Dry: ['ceramides', 'hyaluronic', 'panthenol'],
+    Sensitive: ['ceramides', 'centella', 'panthenol'],
+  }[skinType] || ['hyaluronic', 'ceramides'];
+  BASELINE.forEach(ing => { counts[ing] = (counts[ing] || 0) + 1; });
   const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([id]) => id);
   const careful = ranked.filter(id => INGREDIENTS[id]?.careful?.includes(skinType));
   const recommended = ranked.filter(id => !careful.includes(id)).slice(0, 6);
