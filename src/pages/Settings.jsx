@@ -29,7 +29,7 @@ function Row({ title, desc, children }) {
 }
 
 export default function Settings() {
-  const { user, logout, showToast, clearData, navigate } = useApp();
+  const { user, logout, showToast, clearData, navigate, theme } = useApp();
   const [settings, setSettings] = useState(readSettings);
   const [section, setSection] = useState('preferences');
   const [confirm, setConfirm] = useState(null);
@@ -85,6 +85,10 @@ export default function Settings() {
           {section === 'preferences' && (
             <div className="card">
               <div className="card-head"><h3>Preferences</h3></div>
+              <Row title="Appearance" desc="Follow your device, or always use light or dark mode.">
+                <Segmented size="sm" value={theme.pref} onChange={theme.setPref}
+                  options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
+              </Row>
               <Row title="Scan reminders" desc="How often we nudge you to re-scan for progress tracking.">
                 <Segmented size="sm" value={settings.scanReminder} onChange={v => update('scanReminder', v)}
                   options={[{ value: 'weekly', label: 'Weekly' }, { value: 'biweekly', label: '2 weeks' }, { value: 'off', label: 'Off' }]} />
