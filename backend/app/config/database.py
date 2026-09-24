@@ -88,6 +88,24 @@ create table if not exists routine_logs (
 );
 alter table routine_logs enable row level security;
 
+-- Consultation requests. doctor_id/doctor_name are a snapshot so history
+-- survives directory changes.
+create table if not exists appointments (
+    id          uuid primary key default gen_random_uuid(),
+    user_id     uuid not null references users(id) on delete cascade,
+    doctor_id   text not null,
+    doctor_name text not null,
+    mode        text not null check (mode in ('video', 'chat', 'clinic')),
+    slot        timestamptz not null,
+    fee         int,
+    notes       text,
+    scan_id     uuid references diagnoses(id) on delete set null,
+    status      text not null default 'requested' check (status in ('requested', 'confirmed', 'cancelled', 'completed')),
+    created_at  timestamptz not null default now()
+);
+create index if not exists appointments_user_slot on appointments (user_id, slot);
+alter table appointments enable row level security;
+
 -- Supabase exposes the public schema through its REST API. Enabling RLS with
 -- no policies blocks that path (password hashes stay private); this backend
 -- connects as the postgres role, which bypasses RLS.
