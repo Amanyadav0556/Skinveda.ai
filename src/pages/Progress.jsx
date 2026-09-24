@@ -1,281 +1,236 @@
-import { useState, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../App';
-import { formatDate, timeAgo } from '../data/mockData';
+import { formatDate, timeAgo, MONTHS } from '../data/mockData';
+import { Icon, Meter, LineChart, PageHeader, Segmented, EmptyState, CompareSlider } from '../components/ui';
+import { enrichDiagnosis, METRIC_LABELS } from '../lib/skin';
 
-const BODY_REGIONS = ['Face', 'Neck', 'Forearm', 'Inner elbow', 'Back of knee', 'Chest', 'Back', 'Scalp', 'Hand', 'Leg'];
+const REGIONS = ['Face', 'Neck', 'Forearm', 'Inner elbow', 'Back of knee', 'Chest', 'Back', 'Scalp', 'Hand', 'Leg'];
+
+const weekOf = d => {
+  const t = new Date(d); t.setHours(0, 0, 0, 0);
+  t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); // Monday
+  return t;
+};
+
+const valueOf = (d, m) => (m === 'skinScore' ? d.skinScore : d.metrics[m]);
 
 export default function Progress() {
-  const { progressPhotos, addProgressPhoto, showToast } = useApp();
+  const { diagnoses, progressPhotos, addProgressPhoto, openResult, navigate, showToast } = useApp();
+  const [period, setPeriod] = useState('weekly');
+  const [metric, setMetric] = useState('skinScore');
+  const [region, setRegion] = useState('Face');
+  const [selected, setSelected] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState('upload');
-  const [bodyRegion, setBodyRegion] = useState('Forearm');
-  const [notes, setNotes] = useState('');
-  const [selectedImages, setSelectedImages] = useState([]);
-  const [compareMode, setCompareMode] = useState(false);
-  const [comparePos, setComparePos] = useState(50);
-  const [img1, setImg1] = useState(null);
-  const [img2, setImg2] = useState(null);
   const fileRef = useRef();
 
-  const weekNum = Math.ceil((new Date().getDay() + new Date(new Date().getFullYear(), 0, 1).getDay() + 1) / 7);
+  const history = useMemo(() => diagnoses.map(enrichDiagnosis), [diagnoses]);
+  const chrono = useMemo(() => [...history].reverse(), [history]);
+  const first = chrono[0];
+  const latest = history[0];
 
-  const handleFile = (e) => {
-    const files = Array.from(e.target.files);
+  // Aggregate by week or month (average of scans in the bucket)
+  const series = useMemo(() => {
+    const buckets = new Map();
+    chrono.forEach(d => {
+      const key = period === 'weekly' ? weekOf(d.timestamp).getTime() : new Date(new Date(d.timestamp).getFullYear(), new Date(d.timestamp).getMonth(), 1).getTime();
+      const b = buckets.get(key) || [];
+      b.push(valueOf(d, metric));
+      buckets.set(key, b);
+    });
+    return [...buckets.entries()].map(([k, vals]) => {
+      const dt = new Date(k);
+      return {
+        label: period === 'weekly' ? `${MONTHS[dt.getMonth()]} ${dt.getDate()}` : `${MONTHS[dt.getMonth()]} ’${String(dt.getFullYear()).slice(2)}`,
+        value: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
+      };
+    });
+  }, [chrono, period, metric]);
+
+  const change = first && latest ? latest.skinScore - first.skinScore : 0;
+  const best = history.length ? Math.max(...history.map(d => d.skinScore)) : 0;
+  const thisMonth = history.filter(d => new Date(d.timestamp).getMonth() === new Date().getMonth() && new Date(d.timestamp).getFullYear() === new Date().getFullYear()).length;
+
+  const milestones = [
+    { title: 'First analysis', sub: first ? formatDate(first.timestamp) : 'Run your first scan', reached: history.length >= 1 },
+    { title: '3 scans completed', sub: 'Enough data to see a trend', reached: history.length >= 3 },
+    { title: '+5 point improvement', sub: 'Your routine is working', reached: change >= 5 },
+    { title: 'Score of 75+', sub: 'Very good skin health', reached: best >= 75 },
+    { title: '+15 point improvement', sub: 'A visible transformation', reached: change >= 15 },
+    { title: 'Score of 85+', sub: 'Excellent — maintain it', reached: best >= 85 },
+  ];
+  const nextIdx = milestones.findIndex(m => !m.reached);
+
+  const onFiles = e => {
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    setUploading(true);
+    let pending = files.length;
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setSelectedImages(prev => [...prev, { url: ev.target.result, name: file.name }]);
+      reader.onload = ev => {
+        addProgressPhoto({ imageData: ev.target.result, bodyRegion: region, notes: '' });
+        if (--pending === 0) { setUploading(false); showToast(`${files.length} photo${files.length > 1 ? 's' : ''} added to your timeline`, 'success'); }
       };
       reader.readAsDataURL(file);
     });
+    e.target.value = '';
   };
 
-  const handleUpload = async () => {
-    if (selectedImages.length === 0) { showToast('Please select at least one image', 'error'); return; }
-    setUploading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    const aiChange = (Math.random() * 20 - 5).toFixed(1);
-    const trend = parseFloat(aiChange) > 0 ? 'improving' : parseFloat(aiChange) < -3 ? 'worsening' : 'stable';
-    selectedImages.forEach(img => {
-      addProgressPhoto({
-        imageData: img.url,
-        bodyRegion,
-        notes,
-        weekNumber: weekNum,
-        year: new Date().getFullYear(),
-        aiComparison: { changePct: parseFloat(aiChange), trend },
-      });
-    });
-    showToast(`${selectedImages.length} photo(s) uploaded! AI analysis complete.`, 'success');
-    setSelectedImages([]);
-    setNotes('');
-    setUploading(false);
-    setActiveTab('gallery');
-  };
-
-  const handleMouseMove = (e) => {
-    if (!compareMode) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    setComparePos(Math.max(10, Math.min(90, x)));
-  };
-
-  const getTrendColor = (trend) => ({ improving: '#22c55e', stable: '#f59e0b', worsening: '#ef4444' })[trend] || '#94a3b8';
-  const getTrendIcon = (trend) => ({ improving: '📈', stable: '➡️', worsening: '📉' })[trend] || '—';
+  const toggleSelect = id => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s.slice(-1), id]));
+  const pair = selected.map(id => progressPhotos.find(p => p.id === id)).filter(Boolean)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">📊 Weekly Progress Tracker</h1>
-        <p className="page-subtitle">Upload weekly skin photos for AI-powered before/after comparison and trend analysis.</p>
+    <>
+      <PageHeader
+        eyebrow="Progress tracking"
+        title={<>How your skin is <em>changing</em></>}
+        subtitle="Every scan adds a data point. Consistent weekly scans in similar light give the clearest picture."
+        actions={<>
+          <Segmented value={period} onChange={setPeriod} options={[{ value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]} />
+          <button className="btn btn-dark btn-sm" onClick={() => navigate('diagnosis')}><Icon name="scan" size={16} /> New scan</button>
+        </>}
+      />
+
+      <section className="grid g-4">
+        <div className="card stat">
+          <span className="stat-label">Current score</span>
+          <span className="stat-value">{latest?.skinScore ?? '—'}</span>
+          <span className="stat-foot">{latest ? timeAgo(latest.timestamp) : 'No scans yet'}</span>
+        </div>
+        <div className="card stat">
+          <span className="stat-label">Since first scan</span>
+          <span className={`stat-value ${change > 0 ? 'up' : change < 0 ? 'down' : ''}`} style={{ fontWeight: 800 }}>{history.length > 1 ? `${change >= 0 ? '+' : ''}${change}` : '—'}<small>pts</small></span>
+          <span className="stat-foot">{first ? `From ${first.skinScore} on ${formatDate(first.timestamp)}` : '—'}</span>
+        </div>
+        <div className="card stat">
+          <span className="stat-label">Best score</span>
+          <span className="stat-value">{best || '—'}</span>
+          <span className="stat-foot">Personal record</span>
+        </div>
+        <div className="card stat">
+          <span className="stat-label">Scans this month</span>
+          <span className="stat-value">{thisMonth}<small>/ 4</small></span>
+          <Meter value={Math.min(100, (thisMonth / 4) * 100)} thin />
+        </div>
+      </section>
+
+      <div className="card section-gap">
+        <div className="card-head" style={{ flexWrap: 'wrap' }}>
+          <div><h3>{metric === 'skinScore' ? 'Skin score' : METRIC_LABELS[metric]} · {period}</h3><p className="card-sub">Average of scans in each {period === 'weekly' ? 'week' : 'month'}</p></div>
+          <select className="select" style={{ height: 38, width: 'auto', borderRadius: 99, fontSize: 13.5 }} value={metric} onChange={e => setMetric(e.target.value)} aria-label="Metric">
+            <option value="skinScore">Skin score</option>
+            {Object.entries(METRIC_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </div>
+        {series.length >= 2
+          ? <LineChart points={series} height={260} ariaLabel={`${metric} ${period} trend`} />
+          : <EmptyState icon="chart" title="Not enough data yet" text={`You need scans in at least two different ${period === 'weekly' ? 'weeks' : 'months'} to draw a trend.`}
+              action={<button className="btn btn-soft btn-sm" onClick={() => navigate('diagnosis')}>Add a scan</button>} />}
       </div>
 
-      {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: 24 }}>
-        {[
-          { id: 'upload', label: '📤 Upload Photo' },
-          { id: 'gallery', label: `🖼️ Gallery (${progressPhotos.length})` },
-          { id: 'compare', label: '🔄 Before/After' },
-        ].map(t => (
-          <button key={t.id} className={`tab${activeTab === t.id ? ' active' : ''}`} onClick={() => setActiveTab(t.id)}>{t.label}</button>
-        ))}
-      </div>
-
-      {/* Upload Tab */}
-      {activeTab === 'upload' && (
-        <div style={{ maxWidth: 700, margin: '0 auto' }}>
-          <div className="card card-lg animate-scale-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Week {weekNum} · {new Date().getFullYear()}</h3>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatDate(new Date().toISOString())}</div>
-              </div>
-              <span className="badge badge-teal">📸 Week {weekNum}</span>
+      <div className="grid g-main section-gap">
+        <div className="stack">
+          {/* Metric change */}
+          {first && latest && history.length > 1 && (
+            <div className="card">
+              <div className="card-head"><h3>What’s improved</h3><span className="mono">First → latest</span></div>
+              <ul className="metric-list">
+                {Object.entries(METRIC_LABELS).map(([k, l]) => {
+                  const dv = latest.metrics[k] - first.metrics[k];
+                  return (
+                    <li key={k}>
+                      <div><span>{l}</span><b>{first.metrics[k]} → {latest.metrics[k]} <span className={dv >= 0 ? 'up' : 'down'}>({dv >= 0 ? '+' : ''}{dv})</span></b></div>
+                      <Meter value={latest.metrics[k]} tone={dv >= 0 ? 'emerald' : 'clay'} thin />
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
+          )}
 
-            {/* Drop Zone */}
-            {selectedImages.length === 0 ? (
-              <div className="upload-area" onClick={() => fileRef.current.click()}>
-                <div className="upload-icon">📷</div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Upload Weekly Skin Photos</div>
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20 }}>Take photos in consistent lighting for accurate AI comparison</div>
-                <button className="btn btn-primary">Choose Photos</button>
-                <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-muted)' }}>📝 Tips: Same lighting, same angle, same distance each week</div>
-                <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
+          {/* History */}
+          <div className="card">
+            <div className="card-head"><h3>Scan history</h3><span className="mono">{history.length} total</span></div>
+            {history.length ? (
+              <div className="table-scroll">
+                <table className="history-table">
+                  <thead><tr><th>Date</th><th>Finding</th><th>Area</th><th>Confidence</th><th>Score</th><th /></tr></thead>
+                  <tbody>
+                    {history.map((d, i) => {
+                      const dv = history[i + 1] ? d.skinScore - history[i + 1].skinScore : null;
+                      return (
+                        <tr key={d.id} onClick={() => openResult(d.id)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && openResult(d.id)}>
+                          <td className="nowrap">{formatDate(d.timestamp)}</td>
+                          <td><strong style={{ fontWeight: 600 }}>{d.disease}</strong></td>
+                          <td className="muted">{d.bodyRegion || 'Face'}</td>
+                          <td className="num">{Math.round(d.confidence * 100)}%</td>
+                          <td className="nowrap"><span className="pill pill-emerald">{d.skinScore}</span>{dv !== null && <small className={dv >= 0 ? 'up' : 'down'} style={{ marginLeft: 8 }}>{dv >= 0 ? '▲' : '▼'}{Math.abs(dv)}</small>}</td>
+                          <td><Icon name="chevron" size={16} className="muted" /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
-                  {selectedImages.map((img, i) => (
-                    <div key={i} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                      <img src={img.url} alt="Progress" style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
-                      <button onClick={() => setSelectedImages(prev => prev.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                    </div>
-                  ))}
-                  <button onClick={() => fileRef.current.click()} style={{ height: 120, borderRadius: 10, border: '2px dashed rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 24, transition: 'all 0.2s' }}>+</button>
-                  <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFile} />
+            ) : <EmptyState icon="list" title="No scans yet" text="Your analyses will be listed here with their scores." />}
+          </div>
+
+          {/* Photo timeline */}
+          <div className="card">
+            <div className="card-head" style={{ flexWrap: 'wrap' }}>
+              <div><h3>Photo timeline</h3><p className="card-sub">Select two photos to compare them side by side</p></div>
+              <select className="select" style={{ height: 36, width: 'auto', borderRadius: 99, fontSize: 13 }} value={region} onChange={e => setRegion(e.target.value)} aria-label="Body region for new photos">
+                {REGIONS.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            {pair.length === 2 && (
+              <div style={{ marginBottom: 16 }}>
+                <CompareSlider before={pair[0].imageData} after={pair[1].imageData} />
+                <div className="row-between mt-8 muted" style={{ fontSize: 12.5 }}>
+                  <span>{formatDate(pair[0].timestamp)}</span><button className="btn-text" onClick={() => setSelected([])}>Clear selection</button><span>{formatDate(pair[1].timestamp)}</span>
                 </div>
               </div>
             )}
-
-            {/* Body Region */}
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">Body Region</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {BODY_REGIONS.map(r => (
-                  <button key={r} type="button" onClick={() => setBodyRegion(r)} style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${bodyRegion === r ? 'rgba(0,217,166,0.5)' : 'var(--border)'}`, background: bodyRegion === r ? 'rgba(0,217,166,0.1)' : 'transparent', color: bodyRegion === r ? 'var(--accent-teal)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-                    {r}
+            <div className="photo-grid">
+              <button className="photo-tile photo-add" onClick={() => fileRef.current.click()} disabled={uploading}>
+                <span>{uploading ? <span className="spinner" /> : <Icon name="plus" size={22} />}<br />Add photo</span>
+              </button>
+              {progressPhotos.map(p => {
+                const si = selected.indexOf(p.id);
+                return (
+                  <button key={p.id} className={`photo-tile${si >= 0 ? ' selected' : ''}`} onClick={() => toggleSelect(p.id)} aria-pressed={si >= 0}>
+                    <img src={p.imageData} alt={`${p.bodyRegion} on ${formatDate(p.timestamp)}`} />
+                    {si >= 0 && <span className="photo-tile-sel">{si + 1}</span>}
+                    <span className="photo-tile-meta"><span>{p.bodyRegion}</span><span>{formatDate(p.timestamp).replace(/, \d{4}$/, '')}</span></span>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-
-            {/* Notes */}
-            <div className="form-group" style={{ marginBottom: 24 }}>
-              <label className="form-label">Notes (optional)</label>
-              <textarea className="form-input form-textarea" placeholder="Any changes noticed, treatments applied, triggers this week..." value={notes} onChange={e => setNotes(e.target.value)} style={{ minHeight: 80 }} />
-            </div>
-
-            <button className="btn btn-primary" style={{ width: '100%', padding: 14 }} onClick={handleUpload} disabled={uploading || selectedImages.length === 0}>
-              {uploading ? <><span className="spinner spinner-sm" /> Uploading & Analyzing...</> : `📤 Upload ${selectedImages.length > 0 ? selectedImages.length + ' Photo(s)' : ''}`}
-            </button>
-
-            {/* AI Note */}
-            <div className="alert alert-info" style={{ marginTop: 16 }}>
-              <span>🤖</span>
-              <div style={{ fontSize: 12 }}>AI will compare this week's photos with previous uploads to detect changes, track progress, and generate insights. Results appear in your gallery within seconds.</div>
-            </div>
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
           </div>
         </div>
-      )}
 
-      {/* Gallery Tab */}
-      {activeTab === 'gallery' && (
-        <div>
-          {progressPhotos.length === 0 ? (
-            <div className="card"><div className="empty-state"><div className="empty-state-icon">📷</div><div className="empty-state-title">No photos uploaded yet</div><div className="empty-state-text">Upload your first weekly progress photo to start tracking your skin improvements over time.</div><button className="btn btn-primary btn-sm" onClick={() => setActiveTab('upload')}>Upload First Photo →</button></div></div>
-          ) : (
-            <>
-              {/* Summary Stats */}
-              <div className="grid-3 animate-fade-in" style={{ marginBottom: 24 }}>
-                <div className="card" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--accent-teal)' }}>{progressPhotos.length}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Total Photos</div>
-                </div>
-                <div className="card" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: '#22c55e' }}>
-                    {progressPhotos.filter(p => p.aiComparison?.trend === 'improving').length}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Improving Weeks</div>
-                </div>
-                <div className="card" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--accent-purple-light)' }}>
-                    Week {progressPhotos[0]?.weekNumber || weekNum}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Latest Upload</div>
-                </div>
-              </div>
+        <div className="stack">
+          <div className="card">
+            <div className="card-head"><h3>Milestones</h3><span className="pill pill-mono">{milestones.filter(m => m.reached).length}/{milestones.length}</span></div>
+            <ol className="timeline">
+              {milestones.map((m, i) => (
+                <li key={m.title} className={m.reached ? 'reached' : i === nextIdx ? 'next' : ''}>
+                  <span className="timeline-dot"><Icon name={m.reached ? 'check' : i === nextIdx ? 'target' : 'award'} size={14} stroke={m.reached ? 2.6 : 1.8} /></span>
+                  <div><strong>{m.title}</strong><small>{m.reached ? m.sub : i === nextIdx ? 'Up next · ' + m.sub : m.sub}</small></div>
+                </li>
+              ))}
+            </ol>
+          </div>
 
-              {/* Photo Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
-                {progressPhotos.map((photo, i) => (
-                  <div key={photo.id} className="card card-sm animate-fade-in" style={{ animationDelay: `${i * 0.06}s`, padding: 0, overflow: 'hidden' }}>
-                    <div style={{ position: 'relative' }}>
-                      <img src={photo.imageData} alt="Progress" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
-                      <div style={{ position: 'absolute', top: 10, right: 10 }}>
-                        <span className="badge badge-teal" style={{ fontSize: 10, backdropFilter: 'blur(8px)' }}>Week {photo.weekNumber}</span>
-                      </div>
-                      {photo.aiComparison && (
-                        <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
-                          <span style={{ background: 'rgba(0,0,0,0.75)', color: getTrendColor(photo.aiComparison.trend), fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, backdropFilter: 'blur(8px)' }}>
-                            {getTrendIcon(photo.aiComparison.trend)} {photo.aiComparison.changePct > 0 ? '+' : ''}{photo.aiComparison.changePct}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>📍 {photo.bodyRegion}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(photo.timestamp)}</span>
-                      </div>
-                      {photo.notes && <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 8 }}>{photo.notes}</p>}
-                      {photo.aiComparison && (
-                        <div style={{ fontSize: 12, color: getTrendColor(photo.aiComparison.trend), fontWeight: 700 }}>
-                          {getTrendIcon(photo.aiComparison.trend)} AI: {photo.aiComparison.trend.charAt(0).toUpperCase() + photo.aiComparison.trend.slice(1)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="card card-dark">
+            <span className="mono" style={{ color: '#F0A58C' }}>Consistency tip</span>
+            <h3 style={{ fontSize: 19, letterSpacing: '-.02em', margin: '8px 0 6px' }}>Same time, same light, same angle</h3>
+            <p className="muted" style={{ fontSize: 13.5 }}>Scanning every Sunday morning by a window keeps your trend honest — and makes small wins visible.</p>
+          </div>
         </div>
-      )}
-
-      {/* Compare Tab */}
-      {activeTab === 'compare' && (
-        <div>
-          {progressPhotos.length < 2 ? (
-            <div className="card"><div className="empty-state"><div className="empty-state-icon">🔄</div><div className="empty-state-title">Need at least 2 photos</div><div className="empty-state-text">Upload photos from at least 2 different weeks to use the before/after comparison slider.</div><button className="btn btn-primary btn-sm" onClick={() => setActiveTab('upload')}>Upload Photos →</button></div></div>
-          ) : (
-            <div style={{ maxWidth: 800, margin: '0 auto' }}>
-              {/* Photo Selectors */}
-              <div className="grid-2" style={{ marginBottom: 20 }}>
-                <div className="form-group">
-                  <label className="form-label">Before Photo</label>
-                  <select className="form-select" onChange={e => setImg1(progressPhotos[parseInt(e.target.value)])}>
-                    <option value="">Select photo</option>
-                    {progressPhotos.map((p, i) => <option key={p.id} value={i}>Week {p.weekNumber} · {p.bodyRegion} · {timeAgo(p.timestamp)}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">After Photo</label>
-                  <select className="form-select" onChange={e => setImg2(progressPhotos[parseInt(e.target.value)])}>
-                    <option value="">Select photo</option>
-                    {progressPhotos.map((p, i) => <option key={p.id} value={i}>Week {p.weekNumber} · {p.bodyRegion} · {timeAgo(p.timestamp)}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Comparison Slider */}
-              {img1 && img2 ? (
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                  <div onMouseMove={handleMouseMove} style={{ position: 'relative', height: 400, cursor: 'col-resize', userSelect: 'none', overflow: 'hidden' }}>
-                    {/* Before */}
-                    <img src={img1.imageData} alt="Before" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                    {/* After (clipped) */}
-                    <div style={{ position: 'absolute', inset: 0, clipPath: `inset(0 0 0 ${comparePos}%)` }}>
-                      <img src={img2.imageData} alt="After" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    {/* Divider */}
-                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${comparePos}%`, width: 3, background: '#fff', boxShadow: '0 0 10px rgba(0,0,0,0.5)', zIndex: 10 }}>
-                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 36, height: 36, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.3)', fontSize: 16, color: '#333' }}>⇔</div>
-                    </div>
-                    {/* Labels */}
-                    <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, backdropFilter: 'blur(8px)' }}>BEFORE · Week {img1.weekNumber}</div>
-                    <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, backdropFilter: 'blur(8px)' }}>AFTER · Week {img2.weekNumber}</div>
-                  </div>
-                  <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>← Drag to compare →</div>
-                    {img2.aiComparison && (
-                      <div style={{ fontSize: 14, fontWeight: 700, color: img2.aiComparison.trend === 'improving' ? '#22c55e' : '#ef4444' }}>
-                        {getTrendIcon(img2.aiComparison.trend)} AI Analysis: {img2.aiComparison.trend}
-                        {img2.aiComparison.changePct ? ` (${img2.aiComparison.changePct > 0 ? '+' : ''}${img2.aiComparison.changePct}%)` : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                  <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
-                  <div style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Select a Before and After photo above to see the comparison</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

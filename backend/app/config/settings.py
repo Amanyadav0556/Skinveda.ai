@@ -11,9 +11,8 @@ class Settings(BaseSettings):
     VERSION: str = "2.1.0"
     DEBUG: bool = False
 
-    # MongoDB
-    MONGODB_URL: str = "mongodb+srv://user:password@cluster.mongodb.net"
-    MONGODB_DB: str = "skinveda"
+    # PostgreSQL (Supabase) — postgresql://user:password@host:5432/postgres
+    DATABASE_URL: str = ""
 
     # JWT
     JWT_SECRET: str = "your-super-secret-jwt-key-change-in-production"
@@ -33,7 +32,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "https://skinveda.ai"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:4173", "http://127.0.0.1:4173", "https://skinveda.ai",
+    ]
 
     # AI Model
     MODEL_PATH: str = "./ai/checkpoints/dinov2_skin_v2.pth"
@@ -42,5 +44,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 settings = Settings()

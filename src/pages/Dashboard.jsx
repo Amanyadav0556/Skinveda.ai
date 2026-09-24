@@ -1,285 +1,228 @@
+import { useMemo, useState } from 'react';
 import { useApp } from '../App';
-import { AI_INSIGHTS, ENV_DATA, MOODS, formatDate, timeAgo } from '../data/mockData';
+import { Icon, ScoreRing, Meter, LineChart, Segmented, EmptyState } from '../components/ui';
+import { ENV_DATA, MOODS, timeAgo, formatDate } from '../data/mockData';
+import { enrichDiagnosis, scoreLabel, METRIC_LABELS, buildRoutine, useRoutineLog, guideFor, firstName, useNow } from '../lib/skin';
 
-const WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const QUICK = [
+  { page: 'diagnosis',       icon: 'scan',  label: 'New scan',        sub: 'About 60 seconds' },
+  { page: 'recommendations', icon: 'spark', label: 'My routine',      sub: 'AM & PM plan' },
+  { page: 'mood',            icon: 'smile', label: 'Log mood',        sub: 'Stress affects skin' },
+  { page: 'solace',          icon: 'chat',  label: 'Ask Solace',      sub: 'AI companion' },
+];
 
 export default function Dashboard() {
-  const { user, navigate, moodLogs, diagnoses } = useApp();
+  const { user, navigate, moodLogs, diagnoses, openResult } = useApp();
+  const [range, setRange] = useState('all');
+  const [done, toggle] = useRoutineLog();
+  const now = useNow();
 
-  const recentDiagnoses = diagnoses.slice(0, 3);
-  const recentMoods     = moodLogs.slice(0, 7);
-  const streak          = user?.streak || 1;
-  const avgMood         = recentMoods.length
-    ? Math.round(recentMoods.reduce((s, m) => s + (MOODS.find(x => x.id === m.mood)?.score || 5), 0) / recentMoods.length)
-    : 6;
-  const skinScore = diagnoses.length ? Math.max(40, 90 - diagnoses.length * 5) : 78;
+  const history = useMemo(() => diagnoses.map(enrichDiagnosis), [diagnoses]);
+  const latest = history[0];
+  const prev = history[1];
+  const delta = latest && prev ? latest.skinScore - prev.skinScore : null;
 
-  const chartData = (() => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const log  = moodLogs.find(m => new Date(m.timestamp).toDateString() === d.toDateString());
-      const mood = log ? MOODS.find(x => x.id === log.mood) : null;
-      days.push({ day: WEEK_DAYS[d.getDay()], score: mood?.score || 0, mood: log?.mood });
-    }
-    return days;
-  })();
+  const chartPoints = useMemo(() => {
+    const cutoff = range === '30d' ? now - 30 * 864e5 : range === '90d' ? now - 90 * 864e5 : 0;
+    return [...history].reverse()
+      .filter(d => new Date(d.timestamp).getTime() >= cutoff)
+      .map(d => ({ label: formatDate(d.timestamp).replace(/, \d{4}$/, ''), value: d.skinScore }));
+  }, [history, range, now]);
 
-  const stats = [
-    { icon:'🔥', label:'Day Streak',      value: streak,          change:'+1 today',   dir:'up',
-      bg:'rgba(245,158,11,0.1)',  color:'#D97706' },
-    { icon:'🔬', label:'AI Diagnoses',    value: diagnoses.length, change: diagnoses.length > 0 ? 'Last: '+timeAgo(diagnoses[0]?.timestamp) : 'None yet', dir:'neutral',
-      bg:'rgba(139,92,246,0.1)', color:'#7C3AED' },
-    { icon:'💭', label:'Avg Mood Score',  value:`${avgMood}/10`,  change: avgMood > 5 ? 'Trending positive' : 'Monitor closely', dir: avgMood > 5 ? 'up' : 'down',
-      bg:'rgba(236,72,153,0.1)', color:'#EC4899' },
-    { icon:'🩺', label:'Skin Score',      value:`${skinScore}%`,  change:'AI-estimated health', dir: skinScore > 70 ? 'up' : 'down',
-      bg:'rgba(45,212,191,0.1)',  color:'#0D9488' },
-  ];
+  const hour = new Date().getHours();
+  const isAM = hour < 15;
+  const routine = buildRoutine(user?.skinType, latest?.disease || user?.skinCondition);
+  const steps = isAM ? routine.am : routine.pm;
+  const doneCount = steps.filter(s => done.includes(s.id)).length;
+
+  const weekMoods = moodLogs.filter(m => now - new Date(m.timestamp).getTime() < 7 * 864e5);
+  const avgMood = weekMoods.length
+    ? (weekMoods.reduce((s, m) => s + (MOODS.find(x => x.id === m.mood)?.score || 5), 0) / weekMoods.length).toFixed(1)
+    : null;
+
+  const guide = guideFor(latest?.disease || user?.skinCondition);
+  const env = ENV_DATA.current;
+  const insights = [
+    latest && { icon: 'target', title: `Focus on ${latest.disease.toLowerCase()} care`, text: guide.summary },
+    { icon: 'sun', clay: true, title: `UV ${env.uvIndex} today — high`, text: 'Apply SPF 50 before going out and reapply every 2 hours outdoors.' },
+    avgMood && Number(avgMood) < 5 && { icon: 'heart', clay: true, title: 'Stress may be affecting your skin', text: 'Your mood average dipped this week. A short breathing session with Solace can help.' },
+    { icon: 'drop', title: 'Hydration tip', text: guide.tips[0] },
+  ].filter(Boolean).slice(0, 3);
 
   return (
-    <div className="animate-fade-in">
-      {/* Welcome Header */}
-      <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+    <div className="stack">
+      {/* Hero */}
+      <section className="dash-hero">
+        {latest
+          ? <ScoreRing value={latest.skinScore} size={128} stroke={11} color="#A8CBB9" label={`Skin score ${latest.skinScore}`} />
+          : <div className="ui-empty-icon" style={{ width: 96, height: 96, borderRadius: 28, background: 'rgba(255,255,255,.1)', color: '#A8CBB9' }}><Icon name="scan" size={36} /></div>}
         <div>
-          <h1 className="page-title">
-            Welcome back, <span className="gradient-text">{user?.name?.split(' ')[0] || 'there'}</span> 👋
-          </h1>
-          <p className="page-subtitle">
-            Here's your skin & wellness overview for today, {formatDate(new Date().toISOString())}
-          </p>
+          <span className="mono" style={{ color: '#F0A58C' }}>{latest ? 'Skin health summary' : 'Welcome to SkinVeda'}</span>
+          {latest ? (
+            <>
+              <h2 style={{ marginTop: 8 }}>Your skin is looking <em>{scoreLabel(latest.skinScore).toLowerCase()}</em>, {firstName(user)}.</h2>
+              <p>
+                {delta === null ? 'Run another scan next week to start tracking your trend.'
+                  : delta >= 0 ? `Up ${delta} points since your previous scan — your routine is working.`
+                  : `Down ${Math.abs(delta)} points since your previous scan. Check today’s recommendations.`}
+              </p>
+              <div className="dash-hero-meta">
+                <span className="pill"><Icon name="clock" size={13} /> Last scan {timeAgo(latest.timestamp)}</span>
+                <span className="pill"><Icon name="target" size={13} /> {latest.disease}</span>
+                <span className="pill"><Icon name="flame" size={13} /> {user?.streak || 1}-day streak</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 style={{ marginTop: 8 }}>Let’s get your <em>first reading</em>, {firstName(user)}.</h2>
+              <p>One clear photo gives you a skin score, detected concerns and a routine built for you.</p>
+            </>
+          )}
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('diagnosis')} style={{ gap:6 }}>
-          🔬 New Diagnosis
-        </button>
-      </div>
+        <div className="dash-hero-actions">
+          <button className="btn btn-light" onClick={() => navigate('diagnosis')}><Icon name="scan" size={17} /> New scan</button>
+          {latest && <button className="btn" style={{ color: 'var(--sv-ivory)', borderColor: 'rgba(247,244,238,.3)' }} onClick={() => openResult(latest.id)}>View report <Icon name="arrow" size={17} /></button>}
+        </div>
+      </section>
 
-      {/* Stats Row */}
-      <div className="grid-4" style={{ marginBottom:18 }}>
-        {stats.map((s, i) => (
-          <div key={i} className="stat-card animate-fade-in" style={{ animationDelay:`${i*0.07}s` }}>
-            <div className="stat-icon" style={{ background:s.bg }}>
-              <span style={{ fontSize:20 }}>{s.icon}</span>
-            </div>
-            <div className="stat-content">
-              <div className="stat-label">{s.label}</div>
-              <div className="stat-value" style={{ color:s.color }}>{s.value}</div>
-              <div className={`stat-change ${s.dir}`}>
-                {s.dir==='up' ? '↑' : s.dir==='down' ? '↓' : '—'} {s.change}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Overview stats */}
+      <section className="grid g-4">
+        <div className="card stat">
+          <span className="stat-icon"><Icon name="trend" size={18} /></span>
+          <span className="stat-label">Score change</span>
+          <span className="stat-value">{delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}<small>pts</small></span>
+          <span className="stat-foot">vs previous scan</span>
+        </div>
+        <div className="card stat">
+          <span className="stat-icon"><Icon name="scan" size={18} /></span>
+          <span className="stat-label">Analyses</span>
+          <span className="stat-value">{history.length}</span>
+          <span className="stat-foot">{history.length ? `Since ${formatDate(history[history.length - 1].timestamp)}` : 'None yet'}</span>
+        </div>
+        <div className="card stat">
+          <span className="stat-icon clay"><Icon name="check" size={18} /></span>
+          <span className="stat-label">{isAM ? 'Morning' : 'Evening'} routine</span>
+          <span className="stat-value">{doneCount}<small>/ {steps.length}</small></span>
+          <Meter value={(doneCount / steps.length) * 100} thin />
+        </div>
+        <div className="card stat">
+          <span className="stat-icon"><Icon name="smile" size={18} /></span>
+          <span className="stat-label">Mood · 7 days</span>
+          <span className="stat-value">{avgMood ?? '—'}<small>/ 10</small></span>
+          <span className="stat-foot">{weekMoods.length} check-ins this week</span>
+        </div>
+      </section>
 
-      {/* Main Grid */}
-      <div className="dashboard-grid">
-        {/* Left Column */}
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-
-          {/* Mood Chart */}
-          <div className="card animate-slide-up delay-1">
-            <div className="section-header">
+      <section className="grid g-main">
+        <div className="stack">
+          {/* Progress overview */}
+          <div className="card">
+            <div className="card-head">
               <div>
-                <div className="section-title">💭 Mood Timeline — Last 7 Days</div>
-                <div className="section-subtitle">Daily emotional health tracking</div>
+                <h3>Progress overview</h3>
+                <p className="card-sub">Skin score across your analyses</p>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('mood')}>View all →</button>
+              <Segmented size="sm" value={range} onChange={setRange}
+                options={[{ value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
             </div>
-
-            {recentMoods.length === 0 ? (
-              <div className="empty-state" style={{ padding:'28px 20px' }}>
-                <div className="empty-state-icon">💭</div>
-                <div className="empty-state-title">No mood data yet</div>
-                <div className="empty-state-text">Start logging your daily mood to see patterns.</div>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate('mood')}>Log Today's Mood</button>
-              </div>
-            ) : (
-              <div>
-                <div className="bar-chart">
-                  {chartData.map((d, i) => (
-                    <div key={i} className="bar-item">
-                      <div className="bar-value">{d.score || '—'}</div>
-                      <div className="bar" style={{
-                        height:`${d.score ? (d.score/10)*100 : 0}%`,
-                        background: d.score > 6
-                          ? 'linear-gradient(180deg,#10B981,#059669)'
-                          : d.score > 3
-                          ? 'linear-gradient(180deg,#F59E0B,#D97706)'
-                          : d.score > 0
-                          ? 'linear-gradient(180deg,#EF4444,#DC2626)'
-                          : 'rgba(139,92,246,0.08)',
-                        opacity: d.score ? 1 : 0.4,
-                        borderRadius:'5px 5px 0 0',
-                      }} title={d.mood || 'No data'} />
-                      <div className="bar-label">{d.day}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display:'flex', gap:14, marginTop:12, flexWrap:'wrap' }}>
-                  {[{label:'Positive (7-10)',color:'#10B981'},{label:'Neutral (4-6)',color:'#F59E0B'},{label:'Low (1-3)',color:'#EF4444'}].map(l => (
-                    <div key={l.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#9CA3AF' }}>
-                      <div style={{ width:8, height:8, borderRadius:2, background:l.color }} />
-                      {l.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {chartPoints.length >= 2
+              ? <LineChart points={chartPoints} height={230} ariaLabel="Skin score over time" />
+              : <EmptyState icon="chart" title="Your trend appears after two scans"
+                  text="Scan once a week in similar lighting to see how your skin responds to your routine."
+                  action={<button className="btn btn-soft btn-sm" onClick={() => navigate('diagnosis')}>Start a scan</button>} />}
           </div>
 
-          {/* Recent Diagnoses */}
-          <div className="card animate-slide-up delay-2">
-            <div className="section-header">
-              <div>
-                <div className="section-title">🔬 Recent Diagnoses</div>
-                <div className="section-subtitle">AI skin analysis history</div>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('diagnosis')}>New Analysis →</button>
+          {/* Recent analysis */}
+          <div className="card">
+            <div className="card-head">
+              <h3>Recent analyses</h3>
+              {history.length > 0 && <button className="btn-text" style={{ fontSize: 13.5 }} onClick={() => navigate('progress')}>View all</button>}
             </div>
-
-            {recentDiagnoses.length === 0 ? (
-              <div className="empty-state" style={{ padding:'28px 20px' }}>
-                <div className="empty-state-icon">🔬</div>
-                <div className="empty-state-title">No diagnoses yet</div>
-                <div className="empty-state-text">Upload a skin image to get your first AI diagnosis.</div>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate('diagnosis')}>Start Analysis</button>
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {recentDiagnoses.map((d, i) => (
-                  <div key={d.id} className="animate-fade-in" style={{
-                    animationDelay:`${i*0.08}s`,
-                    display:'flex', alignItems:'center', gap:12,
-                    padding:'12px 14px',
-                    background:'linear-gradient(135deg,rgba(139,92,246,0.03),rgba(236,72,153,0.02))',
-                    borderRadius:12,
-                    border:'1px solid rgba(139,92,246,0.1)',
-                    transition:'all 0.2s',
-                  }}>
-                    <div style={{ width:40, height:40, borderRadius:10, background:'linear-gradient(135deg,rgba(139,92,246,0.12),rgba(236,72,153,0.08))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>🔬</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, marginBottom:2, color:'#111827' }}>{d.disease}</div>
-                      <div style={{ fontSize:11, color:'#9CA3AF' }}>Confidence: {Math.round(d.confidence*100)}% · {d.bodyRegion || 'Unknown region'}</div>
-                    </div>
-                    <div style={{ textAlign:'right' }}>
-                      <span className={`badge badge-${d.risk==='low'?'green':d.risk==='moderate'?'amber':'red'}`}>{d.risk}</span>
-                      <div style={{ fontSize:10, color:'#9CA3AF', marginTop:3 }}>{timeAgo(d.timestamp)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* AI Insights */}
-          <div className="card animate-slide-up delay-3">
-            <div className="section-header">
-              <div className="section-title">💡 AI Personalized Insights</div>
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
-              {AI_INSIGHTS.slice(0, 3).map((ins, i) => (
-                <div key={i} className={`alert alert-${ins.type}`}>
-                  <span className="alert-icon">{ins.icon}</span>
-                  <div>
-                    <div style={{ fontWeight:700, marginBottom:2, fontSize:13 }}>{ins.title}</div>
-                    <div style={{ opacity:0.85, fontSize:12 }}>{ins.message}</div>
-                  </div>
-                </div>
+            {history.length === 0
+              ? <EmptyState icon="image" title="No analyses yet" text="Your scan history will live here." />
+              : history.slice(0, 4).map(d => (
+                <button key={d.id} className="list-item" onClick={() => openResult(d.id)}>
+                  <span className="list-thumb">{d.imageData ? <img src={d.imageData} alt="" /> : <Icon name="scan" size={20} />}</span>
+                  <span className="list-body">
+                    <strong>{d.disease}</strong>
+                    <small>{d.bodyRegion || 'Face'} · {timeAgo(d.timestamp)}</small>
+                  </span>
+                  <span className="pill pill-emerald">{d.skinScore}</span>
+                  <Icon name="chevron" size={16} className="muted" />
+                </button>
               ))}
-            </div>
           </div>
         </div>
 
-        {/* Right Column */}
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          {/* Quick Actions */}
-          <div className="card animate-fade-right delay-1">
-            <div className="section-title" style={{ marginBottom:12 }}>⚡ Quick Actions</div>
-            <div className="quick-actions">
-              {[
-                { icon:'🔬', title:'AI Diagnosis',   desc:'Analyze skin image',     page:'diagnosis', color:'#7C3AED' },
-                { icon:'💭', title:'Log Mood',       desc:'How are you today?',     page:'mood',      color:'#EC4899' },
-                { icon:'🤖', title:'Talk to Solace', desc:'Mental health support',  page:'solace',    color:'#F472B6' },
-                { icon:'📈', title:'Track Progress', desc:'Upload weekly photo',    page:'progress',  color:'#10B981' },
-              ].map((a, i) => (
-                <button key={i} className="quick-action-btn" onClick={() => navigate(a.page)}>
-                  <div className="quick-action-icon">{a.icon}</div>
-                  <div className="quick-action-title" style={{ color:a.color }}>{a.title}</div>
-                  <div className="quick-action-desc">{a.desc}</div>
+        <div className="stack">
+          {/* Skin health summary */}
+          <div className="card card-tint">
+            <div className="card-head">
+              <h3>Skin health</h3>
+              <span className="mono">{latest ? formatDate(latest.timestamp) : 'No data'}</span>
+            </div>
+            {latest ? (
+              <ul className="metric-list">
+                {Object.entries(METRIC_LABELS).slice(0, 5).map(([k, label]) => (
+                  <li key={k}>
+                    <div><span>{label}</span><b>{latest.metrics[k]}</b></div>
+                    <Meter value={latest.metrics[k]} tone={latest.metrics[k] < 60 ? 'clay' : 'emerald'} />
+                  </li>
+                ))}
+              </ul>
+            ) : <EmptyState icon="drop" title="Awaiting your first scan" />}
+          </div>
+
+          {/* Today's routine */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h3>{isAM ? 'Morning' : 'Evening'} routine</h3>
+                <p className="card-sub">Tap each step as you go</p>
+              </div>
+              <span className="pill pill-mono">{doneCount}/{steps.length}</span>
+            </div>
+            <div className="routine-list">
+              {steps.map(s => (
+                <button key={s.id} className={`routine-item${done.includes(s.id) ? ' done' : ''}`} onClick={() => toggle(s.id)}
+                  aria-pressed={done.includes(s.id)}>
+                  <span className="routine-check"><Icon name="check" size={13} stroke={2.6} /></span>
+                  <span className="list-body"><strong>{s.product}</strong></span>
+                  <span className="routine-step">{s.step}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Environment Widget */}
-          <div className="card animate-fade-right delay-2" style={{ background:'linear-gradient(135deg,rgba(96,165,250,0.06),rgba(45,212,191,0.06))', borderColor:'rgba(96,165,250,0.18)' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
-              <div className="section-title">🌿 Today's Environment</div>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('environment')}>Details →</button>
+          {/* AI recommendations */}
+          <div className="card">
+            <div className="card-head">
+              <h3>AI recommendations</h3>
+              <button className="btn-text" style={{ fontSize: 13.5 }} onClick={() => navigate('recommendations')}>See plan</button>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-              <span style={{ fontSize:36 }}>{ENV_DATA.current.weatherIcon}</span>
-              <div>
-                <div style={{ fontSize:26, fontWeight:900, color:'#111827' }}>{ENV_DATA.current.temperature}°C</div>
-                <div style={{ fontSize:12, color:'#9CA3AF' }}>{ENV_DATA.current.weather} · {ENV_DATA.current.city}</div>
+            {insights.map(i => (
+              <div className="insight" key={i.title}>
+                <span className={`insight-icon${i.clay ? ' clay' : ''}`}><Icon name={i.icon} size={17} /></span>
+                <div><strong>{i.title}</strong><p>{i.text}</p></div>
               </div>
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:7 }}>
-              {[
-                { label:'Humidity',  value:`${ENV_DATA.current.humidity}%`, icon:'💧' },
-                { label:'UV Index',  value:ENV_DATA.current.uvIndex,         icon:'☀️' },
-                { label:'AQI',       value:ENV_DATA.current.aqi,             icon:'🌫️' },
-                { label:'Wind',      value:`${ENV_DATA.current.windSpeed} km/h`, icon:'💨' },
-              ].map((m, i) => (
-                <div key={i} style={{ background:'rgba(255,255,255,0.7)', borderRadius:9, padding:'9px 11px', textAlign:'center', border:'1px solid rgba(139,92,246,0.08)' }}>
-                  <div style={{ fontSize:16 }}>{m.icon}</div>
-                  <div style={{ fontSize:14, fontWeight:800, margin:'3px 0 1px', color:'#111827' }}>{m.value}</div>
-                  <div style={{ fontSize:10, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.06em' }}>{m.label}</div>
-                </div>
+            ))}
+          </div>
+
+          {/* Quick actions */}
+          <div className="card">
+            <div className="card-head"><h3>Quick actions</h3></div>
+            <div className="quick-actions">
+              {QUICK.map(q => (
+                <button key={q.page} className="quick-action" onClick={() => navigate(q.page)}>
+                  <span><Icon name={q.icon} size={17} /></span>
+                  {q.label}
+                  <small>{q.sub}</small>
+                </button>
               ))}
             </div>
-            {ENV_DATA.alerts.length > 0 && (
-              <div className="alert alert-warning" style={{ marginTop:10 }}>
-                <span>⚠️</span>
-                <span style={{ fontSize:12 }}>{ENV_DATA.alerts[0].title}</span>
-              </div>
-            )}
           </div>
-
-          {/* Solace AI Card */}
-          <div className="card animate-fade-right delay-3" style={{
-            background:'linear-gradient(135deg,rgba(139,92,246,0.06),rgba(236,72,153,0.06))',
-            borderColor:'rgba(139,92,246,0.18)',
-            textAlign:'center',
-          }}>
-            <div style={{ fontSize:40, marginBottom:10, animation:'float 3.5s ease-in-out infinite' }}>🤖</div>
-            <div style={{ fontSize:15, fontWeight:700, marginBottom:7, color:'#111827' }}>Solace AI</div>
-            <div style={{ fontSize:12, color:'#6B7280', marginBottom:14, lineHeight:1.65 }}>
-              Your mental health companion is ready to listen and support your wellness journey.
-            </div>
-            <button className="btn btn-primary" style={{ width:'100%' }} onClick={() => navigate('solace')}>
-              💬 Start a Conversation
-            </button>
-          </div>
-
-          {/* Skin Condition */}
-          {user?.skinCondition && user.skinCondition !== 'Not specified' && (
-            <div className="card animate-fade-right delay-4" style={{ background:'linear-gradient(135deg,rgba(139,92,246,0.04),rgba(236,72,153,0.03))' }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:9 }}>Your Primary Condition</div>
-              <div style={{ display:'flex', alignItems:'center', gap:11 }}>
-                <div style={{ width:40, height:40, borderRadius:11, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0, boxShadow:'0 4px 12px rgba(139,92,246,0.28)' }}>🩺</div>
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{user.skinCondition}</div>
-                  <div style={{ fontSize:11, color:'#9CA3AF' }}>Monitoring active</div>
-                </div>
-                <div style={{ marginLeft:'auto' }}>
-                  <span className="badge badge-purple">Active</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,734 +1,538 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../App';
 import '../landing.css';
+import { Icon, Logo } from '../components/ui';
 
 /* ─── DATA ─────────────────────────────────────────────────────── */
-const STATS = [
-  { value: '98.2%', label: 'AI Accuracy', suffix: '' },
-  { value: '10K+',  label: 'Active Users', suffix: '' },
-  { value: '5',     label: 'Skin Conditions', suffix: '' },
-  { value: '3.2s',  label: 'Analysis Time', suffix: '' },
-];
-
-const FEATURES = [
-  {
-    icon: '🔬',
-    title: 'AI Skin Diagnosis',
-    desc: 'Upload skin images for instant analysis. Our fine-tuned DINOv2 Vision Transformer detects eczema, psoriasis, vitiligo, acne & dermatitis with 98.2% accuracy.',
-    gradient: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(167,139,250,0.06))',
-    iconBg: 'linear-gradient(135deg, #ede9fe, #ddd6fe)',
-    border: 'rgba(139,92,246,0.15)',
-    topBar: 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
-  },
-  {
-    icon: '💭',
-    title: 'Mood Correlation Tracking',
-    desc: 'Discover how stress, anxiety, and emotional patterns directly trigger and worsen your skin conditions with intelligent mood-skin correlation maps.',
-    gradient: 'linear-gradient(135deg, rgba(236,72,153,0.1), rgba(244,114,182,0.05))',
-    iconBg: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
-    border: 'rgba(236,72,153,0.15)',
-    topBar: 'linear-gradient(90deg, #ec4899, #f472b6)',
-  },
-  {
-    icon: '🤖',
-    title: 'Solace AI Companion',
-    desc: 'Your empathetic AI mental health companion for skin-aware emotional support. Chat or voice-interact for personalized wellness guidance.',
-    gradient: 'linear-gradient(135deg, rgba(96,165,250,0.1), rgba(147,197,253,0.05))',
-    iconBg: 'linear-gradient(135deg, #dbeafe, #bfdbfe)',
-    border: 'rgba(96,165,250,0.15)',
-    topBar: 'linear-gradient(90deg, #60a5fa, #93c5fd)',
-  },
-  {
-    icon: '🌍',
-    title: 'Environmental Intelligence',
-    desc: 'Real-time UV index, AQI, temperature & humidity monitoring with personalized skin risk scores and proactive alerts before flare-up conditions.',
-    gradient: 'linear-gradient(135deg, rgba(45,212,191,0.1), rgba(94,234,212,0.05))',
-    iconBg: 'linear-gradient(135deg, #ccfbf1, #99f6e4)',
-    border: 'rgba(45,212,191,0.15)',
-    topBar: 'linear-gradient(90deg, #2dd4bf, #5eead4)',
-  },
-  {
-    icon: '📊',
-    title: 'Progress Visualization',
-    desc: 'Upload weekly skin photos and let AI track improvement with before/after comparisons, trend graphs, and milestone celebrations.',
-    gradient: 'linear-gradient(135deg, rgba(251,113,133,0.1), rgba(253,164,175,0.05))',
-    iconBg: 'linear-gradient(135deg, #ffe4e6, #fecdd3)',
-    border: 'rgba(251,113,133,0.15)',
-    topBar: 'linear-gradient(90deg, #fb7185, #fda4af)',
-  },
-  {
-    icon: '💡',
-    title: 'Personalized AI Insights',
-    desc: 'Combines skin data, mood history, UV exposure and weather patterns to generate actionable, holistic health intelligence tailored to you.',
-    gradient: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(252,211,77,0.05))',
-    iconBg: 'linear-gradient(135deg, #fef3c7, #fde68a)',
-    border: 'rgba(245,158,11,0.15)',
-    topBar: 'linear-gradient(90deg, #f59e0b, #fcd34d)',
-  },
-];
-
 const STEPS = [
-  { num: '01', icon: '📸', title: 'Capture & Analyze', desc: 'Take or upload a photo of your skin. Our DINOv2 Vision Transformer analyzes it in under 3 seconds — detecting conditions with clinical precision.' },
-  { num: '02', icon: '🗓️', title: 'Track Everything', desc: 'Log daily mood, monitor your environment, and upload weekly photos. All data streams into your personal AI health intelligence dashboard.' },
-  { num: '03', icon: '✨', title: 'Get AI Insights', desc: 'Receive personalized insights connecting skin health, emotional wellbeing, and environment — a complete holistic view of your skin journey.' },
+  { icon: 'upload', title: 'Upload a photo',       desc: 'Snap a clear, well-lit selfie or upload one. Takes about ten seconds.' },
+  { icon: 'cpu',    title: 'AI analysis',          desc: 'Our vision model maps texture, tone, hydration and concerns across your face.' },
+  { icon: 'list',   title: 'Get recommendations',  desc: 'Receive an AM/PM routine and ingredients matched to your skin — not an average.' },
+  { icon: 'trend',  title: 'Track improvement',    desc: 'Re-scan weekly and watch your skin score move with every change you make.' },
+];
+
+const COMPARE = [
+  { label: 'Accurate analysis',        without: 'Mirror guesswork', with: '98.2% model accuracy' },
+  { label: 'Personalized results',     without: 'Generic advice',   with: 'Tailored to you' },
+  { label: 'Easy to use',              without: 'Trial and error',  with: '30-second scan' },
+  { label: 'Skin health tracking',     without: 'No',               with: 'Weekly skin score' },
 ];
 
 const TESTIMONIALS = [
-  { name: 'Priya S.', condition: 'Eczema patient, 3 years', stars: 5, text: 'SkinVeda changed how I manage my eczema. The stress correlation insights helped me realize flare-ups were tied directly to work anxiety. The Solace AI feels genuinely empathetic — like talking to a caring friend.' },
-  { name: 'Rahul M.', condition: 'Psoriasis patient, 7 years', stars: 5, text: 'The UV monitoring is a game changer for my psoriasis. I now get alerts before high-risk days and the weekly progress tracker keeps me motivated. Finally an app that understands the whole picture.' },
-  { name: 'Aisha K.', condition: 'Vitiligo patient, 2 years', stars: 5, text: 'The AI diagnosis was surprisingly accurate — matched exactly what my dermatologist confirmed. Mood tracking helped me see how anxiety was worsening my condition. Truly holistic, truly innovative.' },
+  { name: 'Priya S.',  meta: 'Combination skin · 4 months', initials: 'PS', text: 'I finally stopped buying random serums. The routine SkinVeda built for me cleared my T-zone in six weeks, and I could actually see it in the score.' },
+  { name: 'Rahul M.',  meta: 'Acne-prone · 3 months',       initials: 'RM', text: 'The weekly re-scan keeps me honest. Watching the clarity number climb was more motivating than any before/after photo.' },
+  { name: 'Aisha K.',  meta: 'Sensitive skin · 6 months',   initials: 'AK', text: 'The analysis matched what my dermatologist told me almost word for word — and it explained why, in plain language.' },
 ];
 
-const SKIN_METRICS = [
-  { label: 'Hydration',  value: 82, bar: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', text: '82%' },
-  { label: 'Elasticity', value: 74, bar: 'linear-gradient(90deg, #ec4899, #f472b6)', text: '74%' },
-  { label: 'Clarity',    value: 91, bar: 'linear-gradient(90deg, #60a5fa, #93c5fd)', text: '91%' },
-  { label: 'Sensitivity', value: 43, bar: 'linear-gradient(90deg, #f59e0b, #fcd34d)', text: '43%' },
+const PROGRESS = [64, 67, 66, 71, 74, 78, 82, 86];
+
+const METRICS = [
+  { label: 'Hydration',   value: 72 },
+  { label: 'Clarity',     value: 81 },
+  { label: 'Evenness',    value: 76 },
+  { label: 'Oil balance', value: 58 },
 ];
 
-const REC_CARDS = [
-  { icon: '💧', bg: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', title: 'Hyaluronic Acid Serum', desc: 'Boost skin hydration with 0.1% HA. Apply morning & night after cleansing.', tag: 'High Priority', tagBg: 'rgba(139,92,246,0.1)', tagColor: '#7c3aed' },
-  { icon: '☀️', bg: 'linear-gradient(135deg, #fef3c7, #fde68a)', title: 'SPF 50+ Mineral Sunscreen', desc: 'Your UV sensitivity score is 8.2/10. Daily mineral SPF is critical for you.', tag: 'Critical', tagBg: 'rgba(251,113,133,0.1)', tagColor: '#f43f5e' },
-  { icon: '🌿', bg: 'linear-gradient(135deg, #ccfbf1, #99f6e4)', title: 'Centella Asiatica Toner', desc: 'Detected eczema markers. Centella calms inflammation and strengthens the barrier.', tag: 'Recommended', tagBg: 'rgba(45,212,191,0.1)', tagColor: '#0d9488' },
-  { icon: '🍃', bg: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', title: 'Evening Ceramide Cream', desc: 'Lock in moisture overnight. Your skin barrier metrics show dryness after 8 PM.', tag: 'AI Insight', tagBg: 'rgba(236,72,153,0.1)', tagColor: '#db2777' },
-];
-
-/* ─── Particle Component ───────────────────────────────────────── */
-function Particles() {
-  const particles = Array.from({ length: 18 }, (_, i) => ({
-    id: i,
-    size: Math.random() * 6 + 3,
-    left: Math.random() * 100,
-    duration: Math.random() * 12 + 10,
-    delay: Math.random() * 10,
-    drift: (Math.random() - 0.5) * 120,
-    color: ['rgba(167,139,250,0.5)', 'rgba(244,114,182,0.5)', 'rgba(96,165,250,0.4)', 'rgba(251,113,133,0.4)'][Math.floor(Math.random() * 4)],
-  }));
-  return (
-    <div className="lp-particles" aria-hidden="true">
-      {particles.map(p => (
-        <div
-          key={p.id}
-          className="lp-particle"
-          style={{
-            width: p.size,
-            height: p.size,
-            left: `${p.left}%`,
-            bottom: '-20px',
-            background: p.color,
-            animationDuration: `${p.duration}s`,
-            animationDelay: `${p.delay}s`,
-            '--drift': `${p.drift}px`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ─── Animated Metric Bar ──────────────────────────────────────── */
-function MetricBar({ label, value, bar, text, delay = 0 }) {
-  const [width, setWidth] = useState(0);
+/* ─── HOOKS ────────────────────────────────────────────────────── */
+function useReveal() {
   const ref = useRef(null);
   useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setTimeout(() => setWidth(value), delay); obs.disconnect(); }
-    }, { threshold: 0.4 });
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [value, delay]);
-  return (
-    <div className="lp-skin-metric" ref={ref}>
-      <span className="lp-metric-label">{label}</span>
-      <div className="lp-metric-bar-wrap">
-        <div className="lp-metric-bar" style={{ width: `${width}%`, background: bar, transition: `width 1.4s cubic-bezier(0.4,0,0.2,1) ${delay}ms` }} />
-      </div>
-      <span className="lp-metric-value">{text}</span>
-    </div>
-  );
-}
-
-/* ─── Scroll-Triggered Section ─────────────────────────────────── */
-function FadeSection({ children, className = '' }) {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
-    }, { threshold: 0.12 });
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
+    const root = ref.current;
+    if (!root) return;
+    const els = root.querySelectorAll('.rv');
+    if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(e => io.observe(e));
+    return () => io.disconnect();
   }, []);
+  return ref;
+}
+
+/* ─── PIECES ───────────────────────────────────────────────────── */
+function ScoreRing({ value, size = 104, stroke = 9 }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
   return (
-    <div ref={ref} className={`${className} ${visible ? 'lp-animate-fade-up' : ''}`}
-      style={{ opacity: visible ? undefined : 0 }}>
-      {children}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="sv-ring" role="img" aria-label={`Skin score ${value} out of 100`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--sv-track)" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--sv-emerald)" strokeWidth={stroke}
+        strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - value / 100)}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="sv-ring-num">{value}</text>
+    </svg>
+  );
+}
+
+function ProgressChart() {
+  // Measure real width so axis text renders at 1:1 instead of scaling with the panel
+  const boxRef = useRef(null);
+  const [W, setW] = useState(600);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || !('ResizeObserver' in window)) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(260, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = 190, PX = 30, PT = 16, PB = 26;
+  const min = 60, max = 90;
+  const xs = PROGRESS.map((_, i) => PX + (i * (W - PX - 8)) / (PROGRESS.length - 1));
+  const y = v => PT + (1 - (v - min) / (max - min)) * (H - PT - PB);
+  const line = PROGRESS.map((v, i) => `${i ? 'L' : 'M'}${xs[i]},${y(v)}`).join(' ');
+  const area = `${line} L${xs[xs.length - 1]},${H - PB} L${xs[0]},${H - PB} Z`;
+  const [hover, setHover] = useState(PROGRESS.length - 1);
+  const svgRef = useRef(null);
+
+  const onMove = e => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    xs.forEach((x, i) => { if (Math.abs(x - px) < Math.abs(xs[best] - px)) best = i; });
+    setHover(best);
+  };
+
+  return (
+    <div className="sv-chart" ref={boxRef}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} onMouseMove={onMove} onMouseLeave={() => setHover(PROGRESS.length - 1)}
+        role="img" aria-label="Skin score over 8 weeks, rising from 64 to 86">
+        <defs>
+          <linearGradient id="svArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--sv-emerald)" stopOpacity="0.16" />
+            <stop offset="1" stopColor="var(--sv-emerald)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[60, 70, 80, 90].map(t => (
+          <g key={t}>
+            <line x1={PX} x2={W - 8} y1={y(t)} y2={y(t)} className="sv-grid" />
+            <text x={PX - 8} y={y(t)} className="sv-axis" textAnchor="end" dominantBaseline="central">{t}</text>
+          </g>
+        ))}
+        {xs.map((x, i) => (
+          <text key={i} x={x} y={H - 6} className="sv-axis" textAnchor="middle">W{i + 1}</text>
+        ))}
+        <path d={area} fill="url(#svArea)" />
+        <path d={line} fill="none" stroke="var(--sv-emerald)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <line x1={xs[hover]} x2={xs[hover]} y1={PT} y2={H - PB} className="sv-cross" />
+        <circle cx={xs[hover]} cy={y(PROGRESS[hover])} r="5" fill="var(--sv-emerald)" stroke="var(--sv-paper)" strokeWidth="2" />
+      </svg>
+      <div className={`sv-tip ${hover === 0 ? 'is-start' : hover === PROGRESS.length - 1 ? 'is-end' : ''}`} style={{ left: `${(xs[hover] / W) * 100}%`, top: `${(y(PROGRESS[hover]) / H) * 100}%` }}>
+        <span>Week {hover + 1}</span><strong>{PROGRESS[hover]}</strong>
+      </div>
     </div>
   );
 }
 
-/* ─── Main Landing Component ───────────────────────────────────── */
+function HeroMockup() {
+  return (
+    <div className="sv-mock" aria-hidden="true">
+      <div className="sv-mock-glow" />
+
+      <div className="sv-scan-card">
+        <div className="sv-scan-head">
+          <span className="sv-mono"><i className="sv-live" /> Live skin scan</span>
+          <span className="sv-mono sv-dim">3.2s</span>
+        </div>
+
+        <div className="sv-face">
+          <svg viewBox="0 0 240 260">
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <ellipse key={i} cx="120" cy="132" rx={92 - i * 13} ry={112 - i * 15}
+                fill="none" stroke="var(--sv-sage)" strokeOpacity={0.28 + i * 0.1} strokeWidth="1" strokeDasharray={i % 2 ? '2 5' : 'none'} />
+            ))}
+            <path d="M92 118q10-7 20 0M128 118q10-7 20 0M110 170q10 7 20 0" fill="none" stroke="var(--sv-emerald)" strokeOpacity=".5" strokeWidth="1.6" strokeLinecap="round" />
+            <circle cx="120" cy="86" r="5" className="sv-pt" />
+            <circle cx="78"  cy="150" r="5" className="sv-pt sv-pt-clay" />
+            <circle cx="164" cy="142" r="5" className="sv-pt" />
+          </svg>
+          <div className="sv-scanline" />
+          <span className="sv-tag" style={{ top: '26%', left: '58%' }}>T-zone · oily</span>
+          <span className="sv-tag sv-tag-clay" style={{ top: '70%', left: '50%' }}>Mild acne · 94%</span>
+          <span className="sv-tag" style={{ top: '48%', left: '70%' }}>Hydration 72%</span>
+        </div>
+
+        <div className="sv-scan-foot">
+          {[['Clarity', 81], ['Evenness', 76], ['Texture', 69]].map(([k, v]) => (
+            <div key={k}>
+              <span className="sv-mono sv-dim">{k}</span>
+              <strong>{v}</strong>
+              <span className="sv-meter"><span style={{ width: `${v}%` }} /></span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="sv-float sv-float-score">
+        <ScoreRing value={86} size={72} stroke={7} />
+        <div>
+          <span className="sv-mono sv-dim">Skin score</span>
+          <strong>Very good</strong>
+          <span className="sv-up">▲ 6 this month</span>
+        </div>
+      </div>
+
+      <div className="sv-float sv-float-rec">
+        <span className="sv-chip-icon"><Icon name="drop" size={16} /></span>
+        <div>
+          <span className="sv-mono sv-dim">Recommended · PM</span>
+          <strong>Niacinamide 5% serum</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PAGE ─────────────────────────────────────────────────────── */
 export default function Landing() {
-  const { navigate } = useApp();
+  const { navigate, user } = useApp();
+  const rootRef = useReveal();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const start = () => navigate(user ? 'dashboard' : 'signup');
+  const tryAnalysis = () => navigate(user ? 'diagnosis' : 'signup');
+  const jump = id => e => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div className="lp-root">
-      {/* ── Navigation ──────────────────────────────────────────── */}
-      <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`} role="navigation">
-        <div className="lp-nav-logo">
-          <div className="lp-nav-logo-icon">🌿</div>
-          <span className="lp-nav-logo-text">
-            Skin<span>Veda</span>.ai
-          </span>
-        </div>
-        <div className="lp-nav-links">
-          {['Features', 'How It Works', 'Results', 'Stories'].map((item, i) => (
-            <a key={i} className="lp-nav-link" href={`#${item.toLowerCase().replace(/ /g, '-')}`}>
-              {item}
-            </a>
-          ))}
-        </div>
-        <div className="lp-nav-actions">
-          <button className="lp-btn lp-btn-ghost" onClick={() => navigate('login')}>Sign In</button>
-          <button className="lp-btn lp-btn-primary" onClick={() => navigate('signup')}>Get Started Free →</button>
-        </div>
-      </nav>
-
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="lp-hero" id="hero">
-        {/* Ambient orbs */}
-        <div className="lp-hero-orb lp-hero-orb-1" aria-hidden="true" />
-        <div className="lp-hero-orb lp-hero-orb-2" aria-hidden="true" />
-        <div className="lp-hero-orb lp-hero-orb-3" aria-hidden="true" />
-        <div className="lp-hero-orb lp-hero-orb-4" aria-hidden="true" />
-        <div className="lp-hero-grid" aria-hidden="true" />
-        <Particles />
-
-        <div className="lp-hero-inner">
-          {/* Left Content */}
-          <div className="lp-hero-left">
-            <div className="lp-hero-badge lp-animate-fade-up">
-              <span className="lp-badge-dot" />
-              <span>Powered by DINOv2 Vision AI · 98.2% Accuracy</span>
-            </div>
-
-            <h1 className="lp-hero-title lp-animate-fade-up lp-delay-1">
-              AI-Powered
-              <span className="lp-gradient-text">Personalized</span>
-              Skincare Analysis
-            </h1>
-
-            <p className="lp-hero-subtitle lp-animate-fade-up lp-delay-2">
-              The first platform connecting your skin conditions, emotional health, and environment into one intelligent ecosystem — built for eczema, psoriasis, vitiligo, acne & dermatitis.
-            </p>
-
-            <div className="lp-hero-actions lp-animate-fade-up lp-delay-3">
-              <button
-                id="hero-cta-primary"
-                className="lp-btn lp-btn-primary lp-btn-xl"
-                onClick={() => navigate('signup')}
-              >
-                🚀 Start Free Analysis
-              </button>
-              <button
-                id="hero-cta-secondary"
-                className="lp-btn lp-btn-outline lp-btn-lg"
-                onClick={() => navigate('login')}
-              >
-                Sign In →
-              </button>
-            </div>
-
-            <div className="lp-hero-trust lp-animate-fade-up lp-delay-4">
-              {[
-                { icon: '🔒', strong: 'HIPAA Compliant', sub: 'Secure & Private' },
-                { icon: '🔬', strong: 'DINOv2 AI', sub: 'Research-Grade' },
-                { icon: '⚡', strong: '< 3 Seconds', sub: 'Instant Results' },
-              ].map((t, i) => (
-                <div key={i} className="lp-hero-trust-item">
-                  <div className="lp-trust-icon">{t.icon}</div>
-                  <div className="lp-trust-text">
-                    <strong>{t.strong}</strong>
-                    {t.sub}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right — 3D Visual */}
-          <div className="lp-hero-right lp-animate-scale-in lp-delay-2">
-            <div className="lp-hero-visual">
-              {/* Floating mini cards */}
-              <div className="lp-float-card lp-float-card-1">
-                <div className="lp-float-card-icon" style={{ background: 'linear-gradient(135deg, #ede9fe, #ddd6fe)' }}>🔬</div>
-                <div>
-                  <div className="lp-float-card-label">AI Confidence</div>
-                  <div className="lp-float-card-value lp-gradient-text-static">98.2%</div>
-                </div>
-              </div>
-
-              <div className="lp-float-card lp-float-card-2">
-                <div className="lp-float-card-icon" style={{ background: 'linear-gradient(135deg, #ccfbf1, #a7f3d0)' }}>✅</div>
-                <div>
-                  <div className="lp-float-card-label">Skin Score</div>
-                  <div className="lp-float-card-value" style={{ color: '#0d9488' }}>Excellent</div>
-                </div>
-              </div>
-
-              <div className="lp-float-card lp-float-card-3">
-                <div className="lp-float-card-icon" style={{ background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)' }}>💊</div>
-                <div>
-                  <div className="lp-float-card-label">Routine Updated</div>
-                  <div className="lp-float-card-value" style={{ color: '#db2777' }}>4 Products</div>
-                </div>
-              </div>
-
-              {/* 3D Sphere */}
-              <div className="lp-hero-3d-sphere">
-                <div className="lp-sphere-inner">
-                  <div className="lp-sphere-ring lp-sphere-ring-1" />
-                  <div className="lp-sphere-ring lp-sphere-ring-2" />
-                  <div className="lp-sphere-ring lp-sphere-ring-3" />
-                  <div className="lp-sphere-core">
-                    <span className="lp-sphere-icon">🌸</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div className="sv-landing" ref={rootRef}>
+      {/* ── NAV ── */}
+      <header className={`sv-nav ${scrolled ? 'is-scrolled' : ''}`}>
+        <div className="sv-wrap sv-nav-inner">
+          <a href="#top" onClick={jump('top')} aria-label="SkinVeda.ai home"><Logo /></a>
+          <nav className="sv-nav-links">
+            <a href="#features" onClick={jump('features')}>Features</a>
+            <a href="#how" onClick={jump('how')}>How it works</a>
+            <a href="#preview" onClick={jump('preview')}>Dashboard</a>
+            <a href="#stories" onClick={jump('stories')}>Stories</a>
+            <a href="#pricing" onClick={e => { e.preventDefault(); navigate('pricing'); }}>Pricing</a>
+          </nav>
+          <div className="sv-nav-cta">
+            {!user && <button className="sv-link-btn" onClick={() => navigate('login')}>Sign in</button>}
+            <button className="sv-btn sv-btn-dark sv-btn-sm" onClick={start}>{user ? 'Dashboard' : 'Get Started'}</button>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* ── Stats Bar ───────────────────────────────────────────── */}
-      <div className="lp-stats-bar">
-        <div className="lp-stats-inner">
-          {STATS.map((s, i) => (
-            <FadeSection key={i} className={`lp-stat-item lp-delay-${i + 1}`}>
-              <div className="lp-stat-value lp-gradient-text-static">{s.value}</div>
-              <div className="lp-stat-label">{s.label}</div>
-            </FadeSection>
-          ))}
-        </div>
-      </div>
-
-      {/* ── AI Skin Analysis Preview ─────────────────────────────── */}
-      <section className="lp-section" id="features">
-        <div className="lp-section-inner">
-          <FadeSection>
-            <div className="lp-section-header">
-              <div className="lp-section-chip">✦ AI Analysis</div>
-              <h2 className="lp-section-title">
-                See your skin like<br />
-                <span className="lp-gradient-text-static">never before</span>
-              </h2>
-              <p className="lp-section-desc">
-                Real-time AI analysis delivers clinical-grade skin insights in seconds. No guesswork, no waiting — just intelligent, personalized data.
+      <main id="top">
+        {/* ── HERO ── */}
+        <section className="sv-hero">
+          <div className="sv-wrap sv-hero-grid">
+            <div className="sv-hero-copy">
+              <span className="sv-pill rv"><span className="sv-pill-dot" /> Clinical-grade AI · now in beta</span>
+              <h1 className="rv">
+                AI-Powered Skin Analysis
+                <span className="sv-accent"> for <em>smarter</em> skincare.</span>
+              </h1>
+              <p className="sv-lead rv">
+                SkinVeda reads your skin from a single photo — tone, texture, hydration and concerns —
+                then builds a routine that’s made for you, and shows you it’s working.
               </p>
+              <div className="sv-cta-row rv">
+                <button className="sv-btn sv-btn-dark" onClick={start}>
+                  Get Started <Icon name="arrow" size={18} />
+                </button>
+                <button className="sv-btn sv-btn-ghost" onClick={tryAnalysis}>
+                  <Icon name="scan" size={18} /> Try Skin Analysis
+                </button>
+              </div>
+              <div className="sv-hero-proof rv">
+                <div className="sv-avatars">
+                  {['PS', 'RM', 'AK', 'NJ'].map((a, i) => <span key={a} style={{ '--i': i }}>{a}</span>)}
+                </div>
+                <div>
+                  <div className="sv-stars">{[0, 1, 2, 3, 4].map(i => <Icon key={i} name="star" size={14} stroke={0} />)}<b>4.9</b></div>
+                  <span className="sv-dim">Loved by 10,000+ people improving their skin</span>
+                </div>
+              </div>
             </div>
-          </FadeSection>
+            <div className="sv-hero-visual rv">
+              <HeroMockup />
+            </div>
+          </div>
 
-          <div className="lp-analysis-section">
-            {/* Analysis Card */}
-            <FadeSection className="lp-animate-slide-right">
-              <div className="lp-analysis-card">
-                {/* Card header */}
-                <div className="lp-analysis-header">
-                  <div className="lp-analysis-avatar">🌸</div>
-                  <div>
-                    <div className="lp-analysis-title">AI Skin Analysis</div>
-                    <div className="lp-analysis-sub">Analyzing skin health profile…</div>
-                  </div>
-                  <div className="lp-analysis-badge">✓ Complete</div>
+          <div className="sv-wrap">
+            <dl className="sv-stats rv">
+              {[['98.2%', 'Model accuracy'], ['3.2s', 'Average analysis'], ['40+', 'Skin markers'], ['10K+', 'Active users']].map(([v, l]) => (
+                <div key={l}><dt>{l}</dt><dd>{v}</dd></div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        {/* ── FEATURES ── */}
+        <section className="sv-section" id="features">
+          <div className="sv-wrap">
+            <div className="sv-head rv">
+              <div>
+                <span className="sv-eyebrow">01 — Features</span>
+                <h2>Everything your skin needs, <span className="sv-accent">in one place.</span></h2>
+              </div>
+              <p>From the first scan to your hundredth day, SkinVeda turns what your skin is telling you into decisions you can act on.</p>
+            </div>
+
+            <div className="sv-bento">
+              <article className="sv-card sv-card-lg rv">
+                <div className="sv-card-top">
+                  <span className="sv-icon"><Icon name="scan" /></span>
+                  <span className="sv-badge">Core</span>
                 </div>
+                <h3>AI Skin Analysis</h3>
+                <p>A vision model trained on dermatology imagery maps over 40 markers from one photo — in seconds.</p>
+                <ul className="sv-rows">
+                  <li><span>Acne &amp; breakouts</span><b>Detected · mild</b></li>
+                  <li><span>Pigmentation</span><b>Low</b></li>
+                  <li><span>Hydration</span><b>72%</b></li>
+                  <li><span>Texture</span><b>Smooth</b></li>
+                </ul>
+              </article>
 
-                {/* Face scan visual */}
-                <div className="lp-scan-visual">
-                  <div className="lp-scan-grid" />
-                  <div className="lp-scan-face">😊</div>
-                  <div className="lp-scan-line" />
-                  <div className="lp-scan-corners" />
+              <article className="sv-card rv">
+                <span className="sv-icon"><Icon name="spark" /></span>
+                <h3>Personalized Recommendations</h3>
+                <p>Ingredients and products matched to your skin type, concerns and climate.</p>
+                <div className="sv-chips">
+                  <span>Niacinamide</span><span>Ceramides</span><span>SPF 50</span><span>BHA 2%</span>
                 </div>
+              </article>
 
-                {/* Metrics */}
-                <div className="lp-skin-metrics">
-                  {SKIN_METRICS.map((m, i) => (
-                    <MetricBar key={i} {...m} delay={i * 200} />
+              <article className="sv-card rv">
+                <span className="sv-icon"><Icon name="calendar" /></span>
+                <h3>Routine Tracking</h3>
+                <p>Simple AM/PM check-ins that build a habit — and a streak.</p>
+                <div className="sv-checks">
+                  {[['Cleanser', true], ['Vitamin C', true], ['Sunscreen', true], ['Retinol', false]].map(([s, d]) => (
+                    <span key={s} className={d ? 'done' : ''}><i><Icon name="check" size={12} stroke={2.4} /></i>{s}</span>
                   ))}
                 </div>
+              </article>
 
-                {/* Chips */}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-                  {[
-                    { label: '🌟 Healthy Glow', bg: 'rgba(139,92,246,0.08)', color: '#7c3aed', border: 'rgba(139,92,246,0.2)' },
-                    { label: '💧 Well Hydrated', bg: 'rgba(96,165,250,0.08)', color: '#2563eb', border: 'rgba(96,165,250,0.2)' },
-                    { label: '✨ Clear Pores', bg: 'rgba(45,212,191,0.08)', color: '#0d9488', border: 'rgba(45,212,191,0.2)' },
-                  ].map((chip, i) => (
-                    <div key={i} className="lp-insight-chip" style={{ background: chip.bg, color: chip.color, border: `1px solid ${chip.border}` }}>
-                      {chip.label}
-                    </div>
-                  ))}
+              <article className="sv-card rv">
+                <span className="sv-icon"><Icon name="shield" /></span>
+                <h3>Dermatologist-Inspired Insights</h3>
+                <p>Guidance modelled on clinical practice, explained in plain language — the why behind every step.</p>
+                <blockquote>“Your dryness peaks on cold, low-humidity days. Layer a ceramide cream at night.”</blockquote>
+              </article>
+
+              <article className="sv-card rv">
+                <span className="sv-icon"><Icon name="chart" /></span>
+                <h3>Progress Monitoring</h3>
+                <p>Weekly re-scans turn into a clear trend line, so you know what’s working.</p>
+                <div className="sv-bars" aria-hidden="true">
+                  {PROGRESS.map((v, i) => <span key={i} style={{ height: `${(v - 55) * 2.6}%` }} />)}
                 </div>
-              </div>
-            </FadeSection>
-
-            {/* Text Content */}
-            <FadeSection className="lp-analysis-text lp-animate-slide-left">
-              <div className="lp-section-chip" style={{ marginBottom: 16 }}>🔬 Clinical Grade AI</div>
-              <h2>
-                Instant skin health
-                <br />
-                <span className="lp-gradient-text-static">diagnosis & scoring</span>
-              </h2>
-              <p>
-                Our fine-tuned DINOv2 Vision Transformer analyzes texture, tone, hydration, and condition markers from a single photo — delivering a comprehensive skin health profile in under 3 seconds.
-              </p>
-              <ul className="lp-feature-list">
-                {[
-                  'Detects 5 chronic skin conditions with 98.2% accuracy',
-                  'Real-time hydration, elasticity & clarity scoring',
-                  'Personalized treatment recommendation engine',
-                  'Week-over-week improvement tracking & analytics',
-                  'HIPAA-compliant — your data is always private',
-                ].map((item, i) => (
-                  <li key={i}>
-                    <span className="lp-feature-check">✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('signup')} id="analysis-cta">
-                Try AI Analysis Free →
-              </button>
-            </FadeSection>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Before / After Insights ──────────────────────────────── */}
-      <section className="lp-section lp-section-alt" id="results">
-        <div className="lp-section-inner">
-          <FadeSection>
-            <div className="lp-section-header">
-              <div className="lp-section-chip">📈 Real Results</div>
-              <h2 className="lp-section-title">
-                Track your skin's<br />
-                <span className="lp-gradient-text-static">transformation journey</span>
-              </h2>
+              </article>
             </div>
-          </FadeSection>
-
-          <div className="lp-before-after">
-            {/* Before/After Cards */}
-            <FadeSection className="lp-ba-visual">
-              <div style={{ position: 'relative' }}>
-                <div className="lp-ba-connector-line" />
-                <div className="lp-ba-cards">
-                  {/* Before */}
-                  <FadeSection className="lp-ba-card lp-ba-card-before">
-                    <div className="lp-ba-tag lp-ba-tag-before">Before · Week 0</div>
-                    <span className="lp-ba-face">😔</span>
-                    <div className="lp-ba-score" style={{ color: '#f43f5e' }}>42</div>
-                    <div className="lp-ba-score-label">Skin Health Score</div>
-                    <div className="lp-ba-mini-bars">
-                      {[
-                        { label: 'Hydration', v: 35, c: '#fca5a5' },
-                        { label: 'Clarity',   v: 28, c: '#fca5a5' },
-                        { label: 'Barrier',   v: 42, c: '#fca5a5' },
-                      ].map((b, i) => (
-                        <div key={i} className="lp-ba-mini-bar-row">
-                          <span className="lp-ba-mini-label">{b.label}</span>
-                          <div className="lp-ba-mini-track">
-                            <div className="lp-ba-mini-fill" style={{ width: `${b.v}%`, background: b.c }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </FadeSection>
-
-                  {/* After */}
-                  <FadeSection className="lp-ba-card lp-ba-card-after lp-delay-2">
-                    <div className="lp-ba-tag lp-ba-tag-after">After · Week 8</div>
-                    <span className="lp-ba-face">🌟</span>
-                    <div className="lp-ba-score" style={{ color: '#7c3aed' }}>89</div>
-                    <div className="lp-ba-score-label">Skin Health Score</div>
-                    <div className="lp-ba-mini-bars">
-                      {[
-                        { label: 'Hydration', v: 87, c: 'linear-gradient(90deg,#8b5cf6,#a78bfa)' },
-                        { label: 'Clarity',   v: 91, c: 'linear-gradient(90deg,#8b5cf6,#a78bfa)' },
-                        { label: 'Barrier',   v: 82, c: 'linear-gradient(90deg,#8b5cf6,#a78bfa)' },
-                      ].map((b, i) => (
-                        <div key={i} className="lp-ba-mini-bar-row">
-                          <span className="lp-ba-mini-label">{b.label}</span>
-                          <div className="lp-ba-mini-track">
-                            <div className="lp-ba-mini-fill" style={{ width: `${b.v}%`, background: b.c }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </FadeSection>
-                </div>
-
-                {/* Connector badge */}
-                <div className="lp-ba-connector">+113%</div>
-              </div>
-            </FadeSection>
-
-            {/* Text */}
-            <FadeSection className="lp-ba-text">
-              <div className="lp-section-chip" style={{ marginBottom: 16 }}>📊 8-Week Transformation</div>
-              <h2>
-                See measurable results
-                <br />
-                <span className="lp-gradient-text-static">in just 8 weeks</span>
-              </h2>
-              <p>
-                Users who follow SkinVeda's AI-personalized routines see an average 113% improvement in their skin health score within 8 weeks. Track every milestone with visual before/after comparisons.
-              </p>
-              <div className="lp-improvement-tags">
-                {['🔥 Reduced Inflammation', '💧 +52% Hydration', '🌟 Brighter Tone', '🛡️ Stronger Barrier', '😴 Better Sleep → Better Skin', '🌱 Microbiome Balanced'].map((tag, i) => (
-                  <span key={i} className="lp-improve-tag">{tag}</span>
-                ))}
-              </div>
-              <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('signup')} id="ba-cta">
-                Start Your Journey →
-              </button>
-            </FadeSection>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Features Grid ────────────────────────────────────────── */}
-      <section className="lp-section" id="how-it-works">
-        <div className="lp-section-inner">
-          <FadeSection>
-            <div className="lp-section-header">
-              <div className="lp-section-chip">⚡ Platform</div>
-              <h2 className="lp-section-title">
-                Everything your skin<br />
-                <span className="lp-gradient-text-static">health needs</span>
-              </h2>
-              <p className="lp-section-desc">
-                A complete AI ecosystem combining diagnosis, mental wellness, and environmental intelligence — designed specifically for chronic skin conditions.
-              </p>
+        {/* ── HOW IT WORKS ── */}
+        <section className="sv-section sv-section-tint" id="how">
+          <div className="sv-wrap">
+            <div className="sv-head sv-head-center rv">
+              <span className="sv-eyebrow">02 — How it works</span>
+              <h2>Four steps. <span className="sv-accent">About a minute.</span></h2>
             </div>
-          </FadeSection>
-
-          <div className="lp-features-grid">
-            {FEATURES.map((f, i) => (
-              <FadeSection key={i} className={`lp-feature-card lp-delay-${(i % 3) + 1}`}>
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: f.topBar, borderRadius: '24px 24px 0 0', opacity: 0.8 }} />
-                <div className="lp-feat-icon-wrap" style={{ background: f.iconBg }}>
-                  <span>{f.icon}</span>
-                </div>
-                <div className="lp-feat-title">{f.title}</div>
-                <div className="lp-feat-desc">{f.desc}</div>
-              </FadeSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Personalized Recommendations ─────────────────────────── */}
-      <section className="lp-section lp-section-alt">
-        <div className="lp-section-inner">
-          <div className="lp-rec-section">
-            <FadeSection className="lp-rec-text">
-              <div className="lp-section-chip" style={{ marginBottom: 16 }}>💊 Smart Recommendations</div>
-              <h2>
-                Your personal
-                <br />
-                <span className="lp-gradient-text-static">AI skincare advisor</span>
-              </h2>
-              <p>
-                SkinVeda's recommendation engine analyzes your unique skin profile, condition history, mood patterns, and environmental exposure to suggest the exact products and habits your skin needs.
-              </p>
-              <ul className="lp-feature-list" style={{ marginBottom: 36 }}>
-                {[
-                  'Personalized product recommendations ranked by efficacy',
-                  'Morning & evening routine builder with reminders',
-                  'Ingredient conflict detection & allergy alerts',
-                  'Budget-aware product alternatives suggested by AI',
-                ].map((item, i) => (
-                  <li key={i}>
-                    <span className="lp-feature-check">✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('signup')} id="rec-cta">
-                Get My Skincare Plan →
-              </button>
-            </FadeSection>
-
-            <FadeSection className="lp-rec-cards">
-              {REC_CARDS.map((r, i) => (
-                <div key={i} className={`lp-rec-card lp-delay-${i + 1}`}>
-                  <div className="lp-rec-icon" style={{ background: r.bg }}>{r.icon}</div>
-                  <div className="lp-rec-content">
-                    <div className="lp-rec-title">{r.title}</div>
-                    <div className="lp-rec-desc">{r.desc}</div>
+            <ol className="sv-steps">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="rv" style={{ '--d': `${i * 90}ms` }}>
+                  <div className="sv-step-top">
+                    <span className="sv-step-icon"><Icon name={s.icon} size={22} /></span>
+                    <span className="sv-step-num">0{i + 1}</span>
                   </div>
-                  <div className="lp-rec-tag" style={{ background: r.tagBg, color: r.tagColor, border: `1px solid ${r.tagBg.replace('0.1', '0.2')}` }}>
-                    {r.tag}
-                  </div>
-                </div>
+                  <h3>{s.title}</h3>
+                  <p>{s.desc}</p>
+                </li>
               ))}
-            </FadeSection>
+            </ol>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── How It Works ─────────────────────────────────────────── */}
-      <section className="lp-section" id="stories">
-        <div className="lp-section-inner">
-          <FadeSection>
-            <div className="lp-section-header">
-              <div className="lp-section-chip">🗺️ How It Works</div>
-              <h2 className="lp-section-title">
-                Three steps to
-                <br />
-                <span className="lp-gradient-text-static">better skin health</span>
-              </h2>
+        {/* ── BENEFITS ── */}
+        <section className="sv-section" id="benefits">
+          <div className="sv-wrap">
+            <div className="sv-head rv">
+              <div>
+                <span className="sv-eyebrow">03 — The difference</span>
+                <h2>Skincare, <span className="sv-accent">minus the guesswork.</span></h2>
+              </div>
+              <p>Most routines are built on hunches and trends. SkinVeda builds yours on evidence from your own skin.</p>
             </div>
-          </FadeSection>
 
-          <div className="lp-steps-grid">
-            <div className="lp-steps-connector" />
-            {STEPS.map((s, i) => (
-              <FadeSection key={i} className={`lp-step-card lp-delay-${i + 2}`}>
-                <div className="lp-step-num">{s.num}</div>
-                <div className="lp-step-icon-wrap">{s.icon}</div>
-                <div className="lp-step-title">{s.title}</div>
-                <div className="lp-step-desc">{s.desc}</div>
-              </FadeSection>
-            ))}
+            <div className="sv-compare">
+              <div className="sv-compare-card rv">
+                <span className="sv-tagline sv-tagline-muted">On your own</span>
+                <h3>Guessing what works.</h3>
+                <p>Trending products, conflicting advice, and months before you know if anything helped.</p>
+                <ul className="sv-rows">
+                  {COMPARE.map(r => <li key={r.label}><span>{r.label}</span><b className="sv-dim">{r.without}</b></li>)}
+                </ul>
+              </div>
+              <div className="sv-compare-card sv-compare-hi rv">
+                <span className="sv-tagline">With SkinVeda.ai</span>
+                <h3>Knowing what works.</h3>
+                <p>A precise read of your skin, a routine made for it, and a score that proves the progress.</p>
+                <ul className="sv-rows">
+                  {COMPARE.map(r => (
+                    <li key={r.label}><span>{r.label}</span><b><Icon name="check" size={14} stroke={2.4} /> {r.with}</b></li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Testimonials ─────────────────────────────────────────── */}
-      <section className="lp-section lp-section-alt">
-        <div className="lp-section-inner">
-          <FadeSection>
-            <div className="lp-section-header">
-              <div className="lp-section-chip">❤️ Patient Stories</div>
-              <h2 className="lp-section-title">
-                Real people,
-                <br />
-                <span className="lp-gradient-text-static">real transformations</span>
-              </h2>
+        {/* ── DASHBOARD PREVIEW ── */}
+        <section className="sv-section sv-section-dark" id="preview">
+          <div className="sv-wrap">
+            <div className="sv-head sv-head-center rv">
+              <span className="sv-eyebrow sv-eyebrow-light">04 — Your dashboard</span>
+              <h2>Your skin, <span className="sv-accent">measured.</span></h2>
+              <p>One calm view of your score, what the AI found, what to do next, and how far you’ve come.</p>
             </div>
-          </FadeSection>
 
-          <div className="lp-testimonials-grid">
-            {TESTIMONIALS.map((t, i) => (
-              <FadeSection key={i} className={`lp-testimonial-card lp-delay-${i + 1}`}>
-                <div className="lp-testimonial-quote">"</div>
-                <div className="lp-testimonial-stars">{'★'.repeat(t.stars)}</div>
-                <p className="lp-testimonial-text">{t.text}</p>
-                <div className="lp-testimonial-author">
-                  <div className="lp-testimonial-avatar">{t.name[0]}</div>
-                  <div>
-                    <div className="lp-testimonial-name">{t.name}</div>
-                    <div className="lp-testimonial-cond">{t.condition}</div>
-                  </div>
+            <div className="sv-browser rv">
+              <div className="sv-browser-bar">
+                <span /><span /><span />
+                <div className="sv-url"><Icon name="lock" size={12} /> app.skinveda.ai/dashboard</div>
+              </div>
+
+              <div className="sv-dash">
+                <div className="sv-panel sv-panel-score">
+                  <span className="sv-mono sv-dim">Skin score</span>
+                  <ScoreRing value={86} size={132} stroke={11} />
+                  <strong>Very good</strong>
+                  <span className="sv-up">▲ 6 pts vs last month</span>
                 </div>
-              </FadeSection>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ── CTA Section ──────────────────────────────────────────── */}
-      <section className="lp-cta">
-        <div className="lp-cta-orb-1" aria-hidden="true" />
-        <div className="lp-cta-orb-2" aria-hidden="true" />
-        <FadeSection className="lp-cta-inner">
-          <div className="lp-cta-chip">
-            <span>🌸</span>
-            Start Your Journey Today
-          </div>
-          <h2>
-            Your skin deserves<br />
-            <span className="lp-gradient-text">intelligent care</span>
-          </h2>
-          <p>
-            Join thousands managing chronic skin conditions smarter with AI-powered analysis, personalized routines, and holistic wellness insights.
-          </p>
-          <div className="lp-cta-actions">
-            <button
-              id="cta-primary-main"
-              className="lp-btn-cta-primary"
-              onClick={() => navigate('signup')}
-            >
-              🚀 Get Started Free
-            </button>
-            <button
-              id="cta-secondary-main"
-              className="lp-btn-cta-outline"
-              onClick={() => navigate('login')}
-            >
-              Sign In to Dashboard →
-            </button>
-          </div>
-          <div className="lp-cta-disclaimer">
-            ⚠️ Medical Disclaimer: SkinVeda.ai provides AI-powered informational analysis only. This platform does not replace professional medical diagnosis, advice, or treatment. Always consult a qualified dermatologist for medical concerns.
-          </div>
-        </FadeSection>
-      </section>
+                <div className="sv-panel">
+                  <div className="sv-panel-head"><span className="sv-mono sv-dim">Analysis results</span><span className="sv-mono sv-dim">Today</span></div>
+                  <ul className="sv-metrics">
+                    {METRICS.map(m => (
+                      <li key={m.label}>
+                        <div><span>{m.label}</span><b>{m.value}</b></div>
+                        <span className="sv-meter"><span style={{ width: `${m.value}%` }} /></span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="lp-footer">
-        <div className="lp-footer-inner">
-          <div className="lp-footer-grid">
-            {/* Brand */}
+                <div className="sv-panel">
+                  <div className="sv-panel-head"><span className="sv-mono sv-dim">Today’s routine</span><span className="sv-mono sv-dim">3 / 5</span></div>
+                  <ul className="sv-routine">
+                    {[['AM', 'Gentle gel cleanser', true], ['AM', 'Vitamin C 10%', true], ['AM', 'SPF 50 sunscreen', true], ['PM', 'Niacinamide 5% serum', false], ['PM', 'Ceramide night cream', false]].map(([t, s, d]) => (
+                      <li key={s} className={d ? 'done' : ''}>
+                        <i><Icon name="check" size={11} stroke={2.6} /></i>
+                        <span>{s}</span>
+                        <em>{t}</em>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="sv-panel sv-panel-wide">
+                  <div className="sv-panel-head"><span className="sv-mono sv-dim">Skin score · last 8 weeks</span><span className="sv-up">+22 pts</span></div>
+                  <ProgressChart />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── TRUST ── */}
+        <section className="sv-section" id="stories">
+          <div className="sv-wrap">
+            <div className="sv-head rv">
+              <div>
+                <span className="sv-eyebrow">05 — Trust</span>
+                <h2>Real results, <span className="sv-accent">backed by science.</span></h2>
+              </div>
+              <p>Built with dermatology research, protected by privacy-first engineering, and proven by the people using it every day.</p>
+            </div>
+
+            <div className="sv-trust">
+              <div className="sv-trust-card rv">
+                <div className="sv-big">4.9<small>/5</small></div>
+                <div className="sv-stars">{[0, 1, 2, 3, 4].map(i => <Icon key={i} name="star" size={16} stroke={0} />)}</div>
+                <p className="sv-dim">Average rating from 10,000+ users</p>
+                <ul className="sv-trust-list">
+                  <li><Icon name="trend" size={18} /><span><b>92%</b> saw a higher skin score within 8 weeks</span></li>
+                  <li><Icon name="shield" size={18} /><span>Insights reviewed against dermatology guidelines</span></li>
+                  <li><Icon name="lock" size={18} /><span>Photos encrypted end-to-end, never sold</span></li>
+                </ul>
+              </div>
+
+              <div className="sv-quotes">
+                {TESTIMONIALS.map((t, i) => (
+                  <figure key={t.name} className="sv-quote rv" style={{ '--d': `${i * 90}ms` }}>
+                    <div className="sv-stars">{[0, 1, 2, 3, 4].map(k => <Icon key={k} name="star" size={13} stroke={0} />)}</div>
+                    <blockquote>“{t.text}”</blockquote>
+                    <figcaption>
+                      <span className="sv-avatar">{t.initials}</span>
+                      <span><b>{t.name}</b><small>{t.meta}</small></span>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── CTA ── */}
+        <section className="sv-wrap">
+          <div className="sv-cta rv">
             <div>
-              <div className="lp-nav-logo" style={{ marginBottom: 0 }}>
-                <div className="lp-nav-logo-icon">🌿</div>
-                <span className="lp-nav-logo-text">Skin<span>Veda</span>.ai</span>
-              </div>
-              <p className="lp-footer-brand-desc">
-                AI-powered skin disease management combining diagnosis, mental health, mood tracking, and environmental intelligence for chronic skin conditions.
-              </p>
-              <div className="lp-footer-socials">
-                {['🐦', '📸', '💼', '🎥'].map((icon, i) => (
-                  <button key={i} className="lp-social-btn" aria-label={`Social ${i}`}>{icon}</button>
-                ))}
-              </div>
+              <span className="sv-eyebrow sv-eyebrow-light">Start today</span>
+              <h2>Meet your skin, <em>properly.</em></h2>
+              <p>Your first analysis is free and takes less than a minute.</p>
             </div>
-
-            {/* Links */}
-            {[
-              { title: 'Platform', links: ['AI Diagnosis', 'Mood Tracker', 'Solace AI', 'Progress Tracker', 'Reports & Insights'] },
-              { title: 'Conditions', links: ['Eczema', 'Psoriasis', 'Vitiligo', 'Acne Vulgaris', 'Dermatitis'] },
-              { title: 'Company', links: ['About SkinVeda', 'Privacy Policy', 'Terms of Service', 'Contact Us', 'Research Blog'] },
-            ].map((col, i) => (
-              <div key={i}>
-                <div className="lp-footer-col-title">{col.title}</div>
-                <div className="lp-footer-links">
-                  {col.links.map(link => (
-                    <a key={link} className="lp-footer-link" href="#" onClick={e => e.preventDefault()}>{link}</a>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="sv-cta-row">
+              <button className="sv-btn sv-btn-light" onClick={start}>Get Started <Icon name="arrow" size={18} /></button>
+              <button className="sv-btn sv-btn-outline-light" onClick={tryAnalysis}><Icon name="scan" size={18} /> Try Skin Analysis</button>
+            </div>
           </div>
+        </section>
+      </main>
 
-          <div className="lp-footer-bottom">
-            <div className="lp-footer-copy">© 2025 SkinVeda.ai. All rights reserved. Built for better skin & mental health.</div>
-            <div className="lp-footer-badges">
-              <span className="lp-footer-badge">🔬 DINOv2 AI</span>
-              <span className="lp-footer-badge">🔒 HIPAA Compliant</span>
-              <span className="lp-footer-badge">🌿 v2.0</span>
+      {/* ── FOOTER ── */}
+      <footer className="sv-footer">
+        <div className="sv-wrap">
+          <div className="sv-footer-grid">
+            <div className="sv-footer-brand">
+              <Logo />
+              <p>AI-powered skin analysis and personalized skincare, rooted in science.</p>
             </div>
+            <div>
+              <h4>Product</h4>
+              <a href="#features" onClick={jump('features')}>Features</a>
+              <a href="#how" onClick={jump('how')}>How it works</a>
+              <a href="#preview" onClick={jump('preview')}>Dashboard</a>
+            </div>
+            <div>
+              <h4>Company</h4>
+              <a href="#stories" onClick={jump('stories')}>Stories</a>
+              <a href="#help" onClick={e => { e.preventDefault(); navigate('help'); }}>About</a>
+              <a href="#help" onClick={e => { e.preventDefault(); navigate('help'); }}>Help &amp; contact</a>
+              <a href="#pricing" onClick={e => { e.preventDefault(); navigate('pricing'); }}>Pricing</a>
+            </div>
+            <div>
+              <h4>Legal</h4>
+              <a href="#top" onClick={jump('top')}>Privacy</a>
+              <a href="#top" onClick={jump('top')}>Terms</a>
+            </div>
+          </div>
+          <div className="sv-footer-bottom">
+            <span>© {new Date().getFullYear()} SkinVeda.ai</span>
+            <span>SkinVeda provides AI-assisted insights and is not a substitute for professional medical diagnosis.</span>
           </div>
         </div>
       </footer>

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 import uvicorn
 import logging
-from app.config.database import connect_to_mongo, close_mongo_connection
+from app.config.database import connect_db, close_db
 from app.config.settings import settings
 from app.routers import auth, diagnosis, mood, environment, reports
 from app.middleware.auth import AuthMiddleware
@@ -29,6 +29,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
+    # Any local dev port (Vite moves to 5174, 5175… when 5173 is busy)
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,10 +45,10 @@ app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 
 # Lifecycle
 @app.on_event("startup")
-async def startup(): await connect_to_mongo()
+async def startup(): await connect_db()
 
 @app.on_event("shutdown")
-async def shutdown(): await close_mongo_connection()
+async def shutdown(): await close_db()
 
 # Health
 @app.get("/api/health", tags=["Health"])

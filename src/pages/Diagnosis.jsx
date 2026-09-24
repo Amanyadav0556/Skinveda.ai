@@ -1,315 +1,274 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../App';
-import { simulateAIDiagnosis, formatDate, timeAgo } from '../data/mockData';
+import { simulateAIDiagnosis } from '../data/mockData';
+import { Icon, ScoreRing, Meter, PageHeader, Segmented, Disclaimer } from '../components/ui';
+import { enrichDiagnosis, scoreLabel, severityOf, METRIC_LABELS } from '../lib/skin';
 
 const BODY_REGIONS = ['Face', 'Neck', 'Scalp', 'Chest', 'Back', 'Forearm', 'Inner elbow', 'Back of knee', 'Hand', 'Leg', 'Ankle', 'Other'];
 
-const getRiskBadge = (risk) => ({ low: 'badge-green', moderate: 'badge-amber', high: 'badge-rose', severe: 'badge-red' })[risk] || 'badge-gray';
+const PIPELINE = [
+  { label: 'Loading image into AI pipeline', p: 15, t: 400 },
+  { label: 'Normalising light and colour', p: 35, t: 700 },
+  { label: 'Running DINOv2 vision transformer', p: 60, t: 900 },
+  { label: 'Scoring 40+ skin markers', p: 80, t: 600 },
+  { label: 'Compiling report & recommendations', p: 95, t: 500 },
+];
+
+const TIPS = [
+  { icon: 'sun',    title: 'Use natural, even light', text: 'Face a window. Avoid harsh overhead or coloured light.' },
+  { icon: 'target', title: 'Fill the frame', text: 'Keep the area in focus, 15–30 cm from the camera.' },
+  { icon: 'drop',   title: 'Bare skin works best', text: 'Remove makeup and wait 15 minutes after cleansing.' },
+];
+
+const DETECTS = ['Eczema', 'Psoriasis', 'Acne', 'Vitiligo', 'Dermatitis', 'Hydration', 'Texture', 'Tone'];
+
+const sevPill = s => ({ high: 'pill-bad', moderate: 'pill-warn', low: 'pill-good' })[s];
 
 export default function Diagnosis() {
-  const { addDiagnosis, diagnoses, showToast } = useApp();
-  const [historyTab, setHistoryTab] = useState('analyze');
-  const [activeTab, setActiveTab]   = useState('upload');
-  const [dragOver, setDragOver]     = useState(false);
-  const [image, setImage]           = useState(null);
+  const { addDiagnosis, showToast, openResult, navigate } = useApp();
+  const [mode, setMode] = useState('upload');
+  const [dragOver, setDragOver] = useState(false);
+  const [image, setImage] = useState(null);
   const [bodyRegion, setBodyRegion] = useState('');
-  const [analyzing, setAnalyzing]   = useState(false);
-  const [progress, setProgress]     = useState(0);
-  const [progressLabel, setProgressLabel] = useState('');
-  const [result, setResult]         = useState(null);
-  const [webcamOn, setWebcamOn]     = useState(false);
-  const fileRef  = useRef();
+  const [analyzing, setAnalyzing] = useState(false);
+  const [stepIdx, setStepIdx] = useState(-1);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState(null);
+  const [camOn, setCamOn] = useState(false);
+  const fileRef = useRef();
   const videoRef = useRef();
+  const streamRef = useRef(null);
+
+  const stopCam = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCamOn(false);
+  };
+  useEffect(() => () => streamRef.current?.getTracks().forEach(t => t.stop()), []);
 
   const handleFile = (file) => {
     if (!file || !file.type.startsWith('image/')) { showToast('Please upload a valid image file', 'error'); return; }
+    if (file.size > 10 * 1024 * 1024) { showToast('Image must be under 10 MB', 'error'); return; }
     const reader = new FileReader();
     reader.onload = e => setImage(e.target.result);
     reader.readAsDataURL(file);
     setResult(null);
   };
 
-  const startAnalysis = async () => {
-    if (!image) { showToast('Please upload an image first', 'error'); return; }
-    setAnalyzing(true); setProgress(0); setResult(null);
-    const steps = [
-      { label: 'Loading image into AI pipeline...', p: 15, t: 400 },
-      { label: 'Preprocessing & normalizing...', p: 35, t: 700 },
-      { label: 'Running DINOv2 Vision Transformer...', p: 60, t: 900 },
-      { label: 'Generating classification scores...', p: 80, t: 600 },
-      { label: 'Compiling report & recommendations...', p: 95, t: 500 },
-    ];
-    for (const step of steps) {
-      setProgressLabel(step.label);
-      await new Promise(r => setTimeout(r, step.t));
-      setProgress(step.p);
+  const startCam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setCamOn(true);
+    } catch { showToast('Camera access was blocked. Upload a photo instead.', 'error'); setMode('upload'); }
+  };
+
+  const switchMode = m => {
+    setMode(m);
+    if (m === 'camera') { setImage(null); setResult(null); startCam(); } else stopCam();
+  };
+
+  const capture = () => {
+    const v = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+    canvas.getContext('2d').drawImage(v, 0, 0);
+    setImage(canvas.toDataURL('image/jpeg', 0.9));
+    stopCam(); setMode('upload');
+    showToast('Photo captured', 'success');
+  };
+
+  const analyze = async () => {
+    if (!image) { showToast('Add a photo first', 'error'); return; }
+    setAnalyzing(true); setResult(null); setProgress(0);
+    for (let i = 0; i < PIPELINE.length; i++) {
+      setStepIdx(i);
+      await new Promise(r => setTimeout(r, PIPELINE[i].t));
+      setProgress(PIPELINE[i].p);
     }
     try {
       const res = await simulateAIDiagnosis(image);
-      setProgress(100); setProgressLabel('Analysis complete!');
-      await new Promise(r => setTimeout(r, 300));
+      setProgress(100); setStepIdx(PIPELINE.length);
       res.bodyRegion = bodyRegion || res.bodyRegion;
-      res.imageData  = image;
-      addDiagnosis(res); setResult(res);
-      showToast(`Diagnosis complete: ${res.disease} detected`, 'success');
+      res.imageData = image;
+      const saved = addDiagnosis(enrichDiagnosis(res));
+      setResult(saved);
+      showToast('Analysis complete', 'success');
     } catch { showToast('Analysis failed. Please try again.', 'error'); }
     setAnalyzing(false);
   };
 
-  const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream; setWebcamOn(true);
-    } catch { showToast('Webcam access denied', 'error'); }
-  };
-
-  const captureFrame = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width  = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
-    setImage(canvas.toDataURL('image/jpeg'));
-    setActiveTab('upload');
-    videoRef.current.srcObject?.getTracks().forEach(t => t.stop());
-    setWebcamOn(false);
-    showToast('Image captured!', 'success');
-  };
-
-  const reset = () => { setImage(null); setResult(null); setProgress(0); setBodyRegion(''); };
+  const reset = () => { setImage(null); setResult(null); setProgress(0); setStepIdx(-1); setBodyRegion(''); };
 
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
-      <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-        <div>
-          <h1 className="page-title">🔬 AI Skin Diagnosis</h1>
-          <p className="page-subtitle">Upload or capture a skin image. DINOv2 AI analyzes eczema, psoriasis, vitiligo, acne & dermatitis.</p>
-        </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button className={`btn ${historyTab==='analyze'?'btn-primary':'btn-secondary'}`} onClick={() => setHistoryTab('analyze')}>🔬 Analyze</button>
-          <button className={`btn ${historyTab==='history'?'btn-primary':'btn-secondary'}`} onClick={() => setHistoryTab('history')}>📋 History ({diagnoses.length})</button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        eyebrow="AI skin analysis"
+        title={<>Scan your skin in <em>seconds</em></>}
+        subtitle="Upload or capture a clear photo. Our vision model screens for five common conditions and scores hydration, texture, tone and more."
+        actions={<Segmented value={mode} onChange={switchMode}
+          options={[{ value: 'upload', label: 'Upload', icon: 'upload' }, { value: 'camera', label: 'Camera', icon: 'camera' }]} />}
+      />
 
-      {/* Disclaimer */}
-      <div className="alert alert-warning" style={{ marginBottom:16 }}>
-        <span className="alert-icon">⚠️</span>
-        <div><strong>Medical Disclaimer:</strong> This AI analysis is for informational purposes only and does not constitute a medical diagnosis. Always consult a qualified dermatologist.</div>
-      </div>
-
-      {historyTab === 'analyze' ? (
-        <div style={{ display:'grid', gridTemplateColumns: result ? '1fr 1fr' : '1fr', gap:16 }}>
-
-          {/* Upload Panel */}
-          <div>
-            <div className="tabs" style={{ marginBottom:14 }}>
-              <button className={`tab${activeTab==='upload'?' active':''}`} onClick={() => setActiveTab('upload')}>📁 Upload Image</button>
-              <button className={`tab${activeTab==='webcam'?' active':''}`} onClick={() => { setActiveTab('webcam'); startWebcam(); }}>📷 Webcam</button>
+      <div className="scan-layout">
+        {/* Left: capture */}
+        <div className="stack">
+          {mode === 'camera' && !image ? (
+            <div className="scan-stage">
+              <video ref={videoRef} autoPlay playsInline muted style={{ transform: 'scaleX(-1)' }} />
+              <div className="scan-stage-overlay"><div className="scan-corners"><span /><span /><span /><span /></div></div>
+              {!camOn && <div className="report-photo-empty"><span className="spinner" /></div>}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 20, display: 'flex', justifyContent: 'center' }}>
+                <button className="btn btn-light btn-lg" onClick={capture} disabled={!camOn}><Icon name="camera" size={18} /> Capture</button>
+              </div>
             </div>
-
-            {activeTab === 'upload' && (
-              <div>
-                {!image ? (
-                  <div
-                    className={`upload-area${dragOver?' dragging':''}`}
-                    onClick={() => fileRef.current.click()}
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
-                  >
-                    <div style={{ width:70, height:70, borderRadius:20, background:'linear-gradient(135deg,rgba(139,92,246,0.1),rgba(236,72,153,0.08))', border:'1.5px dashed rgba(139,92,246,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, margin:'0 auto 16px' }}>🖼️</div>
-                    <div style={{ fontSize:16, fontWeight:700, marginBottom:7, color:'#111827' }}>Drop your skin image here</div>
-                    <div style={{ fontSize:13, color:'#6B7280', marginBottom:16 }}>or click to browse files</div>
-                    <div style={{ display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap' }}>
-                      {['JPG', 'PNG', 'WEBP', 'HEIC'].map(f => <span key={f} className="badge badge-purple">{f}</span>)}
-                    </div>
-                    <div style={{ fontSize:11, color:'#9CA3AF', marginTop:12 }}>Max 10MB · Clear, well-lit photos recommended</div>
-                    <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => handleFile(e.target.files[0])} />
-                  </div>
-                ) : (
-                  <div className="card" style={{ padding:0, overflow:'hidden' }}>
-                    <div style={{ position:'relative' }}>
-                      <img src={image} alt="Skin" style={{ width:'100%', height:240, objectFit:'cover', display:'block' }} />
-                      <div style={{ position:'absolute', top:10, right:10 }}>
-                        <span className="badge badge-green" style={{ fontSize:11 }}>✓ Image Ready</span>
-                      </div>
-                    </div>
-                    <div style={{ padding:16 }}>
-                      <div className="form-group" style={{ marginBottom:14 }}>
-                        <label className="form-label">Body Region (optional)</label>
-                        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                          {BODY_REGIONS.map(r => (
-                            <button key={r} type="button" onClick={() => setBodyRegion(r)} style={{
-                              padding:'4px 11px', borderRadius:20, cursor:'pointer', fontSize:11, fontWeight:600, transition:'all 0.2s',
-                              border:`1.5px solid ${bodyRegion===r?'rgba(139,92,246,0.45)':'rgba(139,92,246,0.15)'}`,
-                              background: bodyRegion===r?'linear-gradient(135deg,rgba(139,92,246,0.1),rgba(236,72,153,0.06))':'#fff',
-                              color: bodyRegion===r?'#7C3AED':'#6B7280',
-                            }}>{r}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <div style={{ display:'flex', gap:9 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={reset}>↩ Change</button>
-                        <button className="btn btn-primary" style={{ flex:1 }} onClick={startAnalysis} disabled={analyzing}>
-                          {analyzing ? <><span className="spinner spinner-sm" /> Analyzing...</> : '🚀 Analyze with AI'}
-                        </button>
-                      </div>
-                    </div>
+          ) : !image ? (
+            <div className={`dropzone${dragOver ? ' drag' : ''}`} role="button" tabIndex={0}
+              onClick={() => fileRef.current.click()}
+              onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && fileRef.current.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}>
+              <span className="dropzone-icon"><Icon name="upload" size={30} /></span>
+              <h3>Drop a skin photo here</h3>
+              <p>or <span className="accent" style={{ fontWeight: 700 }}>browse files</span> — JPG, PNG or WEBP up to 10 MB</p>
+              <div className="chip-row">
+                {['Face', 'Body', 'Close-up'].map(t => <span key={t} className="pill">{t}</span>)}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => handleFile(e.target.files[0])} />
+            </div>
+          ) : (
+            <div className="scan-stage">
+              <img src={image} alt="Selected skin area" />
+              <div className="scan-stage-overlay">
+                {analyzing && <><div className="scan-grid" /><div className="scan-beam" /></>}
+                <div className="scan-corners"><span /><span /><span /><span /></div>
+                <span className="scan-stage-tag">
+                  {analyzing ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Analysing · {progress}%</>
+                    : result ? <><Icon name="check" size={13} stroke={2.6} /> Analysis complete</>
+                    : <><Icon name="image" size={13} /> Ready to analyse</>}
+                </span>
+                {!analyzing && (
+                  <div className="scan-stage-actions">
+                    <button className="icon-btn" onClick={reset} title="Remove photo" aria-label="Remove photo"><Icon name="x" size={18} /></button>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'webcam' && (
-              <div className="card" style={{ padding:0, overflow:'hidden' }}>
-                <video ref={videoRef} autoPlay playsInline style={{ width:'100%', height:240, objectFit:'cover', background:'#0f0f0f', display:'block' }} />
-                <div style={{ padding:16, display:'flex', gap:10 }}>
-                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { videoRef.current?.srcObject?.getTracks().forEach(t => t.stop()); setActiveTab('upload'); setWebcamOn(false); }}>Cancel</button>
-                  <button className="btn btn-primary" style={{ flex:2 }} onClick={captureFrame} disabled={!webcamOn}>📸 Capture & Analyze</button>
-                </div>
-              </div>
-            )}
-
-            {/* Analysis Progress */}
-            {analyzing && (
-              <div className="card" style={{ marginTop:14 }}>
-                <div style={{ textAlign:'center', padding:'16px 0' }}>
-                  <div style={{ width:48, height:48, borderRadius:'50%', background:'linear-gradient(135deg,rgba(139,92,246,0.12),rgba(236,72,153,0.08))', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
-                    <div className="spinner" />
-                  </div>
-                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6, color:'#111827' }}>🧠 DINOv2 AI Analyzing...</div>
-                  <div style={{ fontSize:12, color:'#9CA3AF', marginBottom:14 }}>{progressLabel}</div>
-                  <div className="progress-bar" style={{ height:7 }}>
-                    <div className="progress-fill" style={{ width:`${progress}%` }} />
-                  </div>
-                  <div style={{ fontSize:12, color:'#8B5CF6', marginTop:7, fontWeight:700 }}>{progress}%</div>
-                </div>
-                <div style={{ borderTop:'1px solid rgba(139,92,246,0.1)', paddingTop:14, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-                  {['Image Preprocessing', 'ViT Inference', 'Disease Classification'].map((s, i) => (
-                    <div key={i} style={{ textAlign:'center', fontSize:11, color: progress>(i+1)*30?'#8B5CF6':'#9CA3AF' }}>
-                      <div style={{ fontSize:18, marginBottom:3 }}>{progress>(i+1)*30?'✅':'⏳'}</div>
-                      {s}
-                    </div>
+          {image && !result && (
+            <div className="card">
+              <div className="field">
+                <span className="label">Where is this photo from? <small>optional</small></span>
+                <div className="chip-row">
+                  {BODY_REGIONS.map(r => (
+                    <button key={r} type="button" className={`tag-chip${bodyRegion === r ? ' active' : ''}`}
+                      onClick={() => setBodyRegion(b => (b === r ? '' : r))} disabled={analyzing}>{r}</button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Results Panel */}
-          {result && !analyzing && (
-            <div className="animate-scale-in">
-              <div className="diagnosis-result">
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
-                  <div>
-                    <div style={{ fontSize:10, fontWeight:700, color:'#10B981', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:5 }}>✅ Analysis Complete</div>
-                    <h2 style={{ fontSize:22, fontWeight:900, marginBottom:3, color:'#111827' }}>{result.disease}</h2>
-                    <div style={{ fontSize:11, color:'#9CA3AF' }}>Model: {result.modelVersion} · ID: {result.analysisId}</div>
-                  </div>
-                  <span className={`badge ${getRiskBadge(result.risk)}`} style={{ fontSize:11 }}>{result.risk?.toUpperCase()} RISK</span>
-                </div>
-
-                {/* Confidence */}
-                <div style={{ marginBottom:16, padding:'14px 16px', background:'linear-gradient(135deg,rgba(139,92,246,0.06),rgba(236,72,153,0.04))', border:'1px solid rgba(139,92,246,0.15)', borderRadius:12 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                    <span style={{ fontSize:12, fontWeight:600, color:'#6B7280' }}>AI Confidence Score</span>
-                    <span style={{ fontSize:18, fontWeight:900, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{Math.round(result.confidence*100)}%</span>
-                  </div>
-                  <div className="progress-bar" style={{ height:8 }}>
-                    <div className="progress-fill" style={{ width:`${result.confidence*100}%` }} />
-                  </div>
-                </div>
-
-                {/* Body Region */}
-                {result.bodyRegion && (
-                  <div style={{ marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
-                    <span className="badge badge-blue">📍 {result.bodyRegion}</span>
-                  </div>
-                )}
-
-                {/* Description */}
-                <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:7 }}>About This Condition</div>
-                  <p style={{ fontSize:13, color:'#6B7280', lineHeight:1.7 }}>{result.description}</p>
-                </div>
-
-                {/* Recommendations */}
-                {result.recommendations?.length > 0 && (
-                  <div style={{ marginBottom:16 }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:9 }}>🩺 AI Recommendations</div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                      {result.recommendations.map((r, i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:9, fontSize:12, color:'#6B7280', background:'rgba(139,92,246,0.04)', borderRadius:8, padding:'7px 10px', border:'1px solid rgba(139,92,246,0.08)' }}>
-                          <span style={{ color:'#8B5CF6', fontWeight:700, flexShrink:0 }}>✓</span>{r}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Triggers */}
-                {result.triggers?.length > 0 && (
-                  <div style={{ marginBottom:16 }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>⚡ Known Triggers</div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                      {result.triggers.map(t => <span key={t} className="badge badge-amber">{t}</span>)}
-                    </div>
-                  </div>
-                )}
-
-                <div className="alert alert-warning" style={{ marginBottom:14 }}>
-                  <span>⚠️</span>
-                  <div style={{ fontSize:11 }}>For informational use only. Please consult a qualified dermatologist for proper diagnosis and treatment.</div>
-                </div>
-
-                <div style={{ display:'flex', gap:9 }}>
-                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={reset}>New Analysis</button>
-                  <button className="btn btn-primary" style={{ flex:1 }}>📋 Save Report</button>
-                </div>
-              </div>
+              <button className="btn btn-dark btn-lg btn-block mt-24" onClick={analyze} disabled={analyzing}>
+                {analyzing ? <><span className="spinner" /> Analysing your skin…</> : <><Icon name="scan" size={18} /> Analyse skin</>}
+              </button>
             </div>
           )}
+
+          <Disclaimer />
         </div>
-      ) : (
-        /* History Tab */
-        <div>
-          {diagnoses.length === 0 ? (
+
+        {/* Right: guidance → progress → results */}
+        <div className="stack">
+          {analyzing || (stepIdx >= 0 && !result) ? (
             <div className="card">
-              <div className="empty-state">
-                <div className="empty-state-icon">🔬</div>
-                <div className="empty-state-title">No diagnoses yet</div>
-                <div className="empty-state-text">Your AI diagnosis history will appear here after your first analysis.</div>
-                <button className="btn btn-primary" onClick={() => setHistoryTab('analyze')}>Start First Analysis →</button>
+              <div className="card-head">
+                <div><h3>Analysing</h3><p className="card-sub">This usually takes about 3 seconds</p></div>
+                <span className="mono">{progress}%</span>
               </div>
+              <Meter value={progress} />
+              <ol className="pipeline mt-16">
+                {PIPELINE.map((s, i) => (
+                  <li key={s.label} className={i < stepIdx ? 'done' : i === stepIdx ? 'active' : ''}>
+                    <span className="pipeline-dot"><Icon name="check" size={12} stroke={2.8} /></span>{s.label}
+                  </li>
+                ))}
+              </ol>
             </div>
-          ) : (
-            <div style={{ display:'grid', gap:12 }}>
-              {diagnoses.map((d, i) => (
-                <div key={d.id} className="card animate-fade-in" style={{ animationDelay:`${i*0.05}s` }}>
-                  <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-                    {d.imageData && <img src={d.imageData} alt="Skin" style={{ width:70, height:70, borderRadius:12, objectFit:'cover', flexShrink:0, border:'2px solid rgba(139,92,246,0.15)' }} />}
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:6 }}>
-                        <span style={{ fontSize:15, fontWeight:800, color:'#111827' }}>{d.disease}</span>
-                        <span className={`badge ${getRiskBadge(d.risk)}`}>{d.risk}</span>
-                      </div>
-                      <div style={{ fontSize:12, color:'#9CA3AF', marginBottom:6 }}>
-                        📍 {d.bodyRegion||'Unknown'} · Confidence: {Math.round(d.confidence*100)}% · {formatDate(d.timestamp)}
-                      </div>
-                      {d.recommendations?.length > 0 && (
-                        <div style={{ fontSize:11, color:'#6B7280' }}>✓ {d.recommendations[0]}</div>
-                      )}
-                    </div>
-                    <div style={{ fontSize:20, fontWeight:900, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text', flexShrink:0 }}>
-                      {Math.round(d.confidence*100)}%
-                    </div>
+          ) : result ? (
+            <>
+              <div className="card card-tint">
+                <div className="row" style={{ gap: 18 }}>
+                  <ScoreRing value={result.skinScore} size={96} stroke={9} />
+                  <div>
+                    <span className="mono muted">Skin score</span>
+                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.03em' }}>{scoreLabel(result.skinScore)}</div>
+                    <p className="ink2" style={{ fontSize: 13.5 }}>{result.bodyRegion} · {result.modelVersion}</p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head"><h3>Detected concerns</h3><span className="mono">Confidence</span></div>
+                <div className="stack" style={{ gap: 10 }}>
+                  {result.concerns.map(c => {
+                    const sev = severityOf(c.confidence);
+                    return (
+                      <div key={c.name} className={`concern-card${c.primary ? ' primary' : ''}`}>
+                        <div className="concern-card-head">
+                          <div><strong>{c.name}</strong><small>{c.primary ? 'Primary finding' : 'Secondary sign'} · {c.area}</small></div>
+                          <span className={`pill ${sevPill(sev)}`}>{sev === 'high' ? 'Likely' : sev === 'moderate' ? 'Possible' : 'Mild'}</span>
+                        </div>
+                        <div className="concern-conf">
+                          <Meter value={c.confidence * 100} tone={c.primary ? 'emerald' : 'sage'} thin />
+                          <b>{Math.round(c.confidence * 100)}%</b>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head"><h3>Key metrics</h3></div>
+                <ul className="metric-list">
+                  {Object.entries(METRIC_LABELS).slice(0, 4).map(([k, l]) => (
+                    <li key={k}><div><span>{l}</span><b>{result.metrics[k]}</b></div><Meter value={result.metrics[k]} tone={result.metrics[k] < 60 ? 'clay' : 'emerald'} thin /></li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="grid g-2">
+                <button className="btn btn-dark btn-lg" onClick={() => openResult(result.id)}>Full report <Icon name="arrow" size={18} /></button>
+                <button className="btn btn-ghost btn-lg" onClick={() => navigate('recommendations')}><Icon name="spark" size={18} /> My plan</button>
+              </div>
+              <button className="btn-text" style={{ justifySelf: 'center', fontSize: 13.5 }} onClick={reset}>Start a new scan</button>
+            </>
+          ) : (
+            <>
+              <div className="card">
+                <div className="card-head"><h3>For the best results</h3></div>
+                <ul className="tips-list">
+                  {TIPS.map(t => (
+                    <li key={t.title}><span><Icon name={t.icon} size={16} /></span><div><strong>{t.title}</strong>{t.text}</div></li>
+                  ))}
+                </ul>
+              </div>
+              <div className="card card-tint">
+                <div className="card-head"><h3>What we analyse</h3><span className="pill pill-mono pill-emerald">40+ markers</span></div>
+                <div className="chip-row">
+                  {DETECTS.map(d => <span key={d} className="pill">{d}</span>)}
+                </div>
+                <ul className="rows soft mt-16">
+                  <li><span>Model</span><b>DINOv2 ViT · v2.1</b></li>
+                  <li><span>Average time</span><b>3.2 s</b></li>
+                  <li><span>Your photo</span><b>Encrypted · private</b></li>
+                </ul>
+              </div>
+            </>
           )}
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

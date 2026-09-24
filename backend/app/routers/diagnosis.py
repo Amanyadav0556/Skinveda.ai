@@ -1,9 +1,9 @@
 """SkinVeda.ai — AI Diagnosis Router"""
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from datetime import datetime
-from bson import ObjectId
+import uuid
 from typing import Optional
-from app.config.database import get_collection
+from app.config.database import get_pool
 from app.routers.auth import get_current_user
 from app.services.ai_service import run_inference
 import cloudinary
@@ -60,31 +60,21 @@ async def analyze_skin(
 
     disease_key = prediction["disease"].lower().replace(" ", "_")
     disease_info = DISEASE_DATA.get(disease_key, DISEASE_DATA["eczema"])
-    analysis_id = f"SVD-{ObjectId()}"
+    analysis_id = f"SVD-{uuid.uuid4().hex[:12].upper()}"
 
     # Save to DB
-    doc = {
-        "user_id": ObjectId(current_user["id"]),
-        "image_url": image_url,
-        "disease": prediction["disease"],
-        "confidence": prediction["confidence"],
-        "risk_level": disease_info["risk"],
-        "description": disease_info["description"],
-        "recommendations": disease_info["recommendations"],
-        "symptoms": prediction.get("symptoms", []),
-        "triggers": prediction.get("triggers", []),
-        "body_region": body_region,
-        "notes": notes,
-        "ai_model_version": "SkinVeda-DINOv2-v2.1",
-        "analysis_id": analysis_id,
-        "timestamp": datetime.utcnow(),
-    }
-    col = get_collection("diagnoses")
-    result = await col.insert_one(doc)
-    doc["_id"] = result.inserted_id
+    new_id = await get_pool().fetchval(
+        """insert into diagnoses (user_id, image_url, disease, confidence, risk_level, description,
+               recommendations, symptoms, triggers, body_region, notes, ai_model_version, analysis_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id""",
+        uuid.UUID(current_user["id"]), image_url, prediction["disease"], prediction["confidence"],
+        disease_info["risk"], disease_info["description"], disease_info["recommendations"],
+        prediction.get("symptoms", []), prediction.get("triggers", []), body_region, notes,
+        "SkinVeda-DINOv2-v2.1", analysis_id,
+    )
 
     return {
-        "id": str(doc["_id"]),
+        "id": str(new_id),
         "disease": prediction["disease"],
         "confidence": prediction["confidence"],
         "risk_level": disease_info["risk"],
@@ -99,18 +89,20 @@ async def analyze_skin(
 
 @router.get("/history")
 async def get_history(limit: int = 20, skip: int = 0, current_user=Depends(get_current_user)):
-    col = get_collection("diagnoses")
-    cursor = col.find({"user_id": ObjectId(current_user["id"])}).sort("timestamp", -1).skip(skip).limit(limit)
-    diagnoses = []
-    async for d in cursor:
-        d["id"] = str(d.pop("_id")); d["user_id"] = str(d["user_id"])
-        diagnoses.append(d)
+    rows = await get_pool().fetch(
+        "select * from diagnoses where user_id = $1 order by timestamp desc offset $2 limit $3",
+        uuid.UUID(current_user["id"]), max(0, skip), max(1, min(limit, 100)))
+    diagnoses = [{**dict(r), "id": str(r["id"]), "user_id": str(r["user_id"])} for r in rows]
     return {"diagnoses": diagnoses, "total": len(diagnoses)}
 
 @router.delete("/{diagnosis_id}")
 async def delete_diagnosis(diagnosis_id: str, current_user=Depends(get_current_user)):
-    col = get_collection("diagnoses")
-    result = await col.delete_one({"_id": ObjectId(diagnosis_id), "user_id": ObjectId(current_user["id"])})
-    if result.deleted_count == 0:
+    try:
+        diag_id = uuid.UUID(diagnosis_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Diagnosis not found")
+    result = await get_pool().execute("delete from diagnoses where id = $1 and user_id = $2",
+                                      diag_id, uuid.UUID(current_user["id"]))
+    if result.endswith(" 0"):
         raise HTTPException(status_code=404, detail="Diagnosis not found")
     return {"message": "Diagnosis deleted"}

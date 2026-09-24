@@ -1,18 +1,28 @@
 import { useState } from 'react';
 import { useApp } from '../App';
+import { api } from '../api';
+import AuthLayout from '../components/AuthLayout';
+import { Icon } from '../components/ui';
 
 const SKIN_CONDITIONS = ['Eczema', 'Psoriasis', 'Vitiligo', 'Acne Vulgaris', 'Contact Dermatitis', 'Other / Not Sure'];
 const SKIN_TYPES = ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'];
+const GENDERS = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
 
-const STEPS = [
-  { label: 'Account',  desc: 'Create your credentials', icon: '🔐' },
-  { label: 'Profile',  desc: 'Tell us about yourself',  icon: '👤' },
-  { label: 'Skin Info', desc: 'Your skin health history', icon: '🩺' },
-];
+const STEPS = ['Account', 'About you', 'Your skin'];
+
+const pwScore = pw => {
+  if (!pw) return 0;
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw) || pw.length >= 12) s++;
+  return Math.max(1, s);
+};
 
 export default function Signup() {
   const { login, navigate, showToast } = useApp();
-  const [step, setStep]     = useState(0);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({
@@ -49,229 +59,175 @@ export default function Signup() {
 
   const handleSubmit = async () => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1400));
-    login({
-      name: form.name, email: form.email,
-      age: form.age, gender: form.gender, location: form.location,
-      skinCondition: form.skinCondition || 'Not specified',
-      skinType: form.skinType || 'Not specified',
-      joinedAt: new Date().toISOString(), streak: 1,
-    });
-    showToast(`Welcome to SkinVeda.ai, ${form.name.split(' ')[0]}! 🎉`, 'success');
+    try {
+      const response = await api.register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        age: form.age ? parseInt(form.age) : null,
+        gender: form.gender || null,
+        location: form.location || null,
+        skin_condition: form.skinCondition || 'Not specified',
+        skin_type: form.skinType || 'Not specified',
+      });
+      login(response.user);
+      showToast(`Welcome to SkinVeda.ai, ${form.name.split(' ')[0]}!`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Registration failed', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const onSubmit = e => {
+    e.preventDefault();
+    if (step < STEPS.length - 1) nextStep();
+    else handleSubmit();
+  };
+
+  const err = k => errors[k] && <div className="field-error"><Icon name="alert" size={14} />{errors[k]}</div>;
+  const score = pwScore(form.password);
+
   return (
-    <div className="auth-page">
-      {/* Left Panel */}
-      <div className="auth-left">
-        <div style={{ position:'absolute', top:-100, right:-80, width:380, height:380, borderRadius:'50%', background:'radial-gradient(circle, rgba(167,139,250,0.28) 0%, transparent 70%)', filter:'blur(60px)', pointerEvents:'none' }} />
-        <div style={{ position:'absolute', bottom:-80, left:-60, width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(244,114,182,0.22) 0%, transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
-
-        <div style={{ position:'relative', zIndex:2, maxWidth:420 }} className="animate-fade-in">
-          {/* Brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:28 }}>
-            <div style={{ width:40, height:40, borderRadius:11, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, color:'#fff', boxShadow:'0 6px 20px rgba(139,92,246,0.35)' }}>✦</div>
-            <span style={{ fontSize:20, fontWeight:800, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>SkinVeda.ai</span>
-          </div>
-
-          <h2 style={{ fontSize:26, fontWeight:800, letterSpacing:'-0.5px', marginBottom:10, lineHeight:1.2, color:'#111827' }}>
-            Join <span className="gradient-text">10,000+</span> people managing skin health smarter
-          </h2>
-          <p style={{ fontSize:13, color:'#6B7280', lineHeight:1.7, marginBottom:28 }}>
-            Get personalized AI insights connecting your skin health, mood, and environment.
-          </p>
-
-          {/* Steps Progress */}
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {STEPS.map((s, i) => (
-              <div key={i} style={{
-                display:'flex', alignItems:'center', gap:12,
-                padding:'12px 14px',
-                borderRadius:12,
-                background: i <= step ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.6)',
-                border: `1px solid ${i === step ? 'rgba(139,92,246,0.28)' : i < step ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.1)'}`,
-                backdropFilter: 'blur(8px)',
-                transition: 'all 0.3s',
-                boxShadow: i === step ? '0 4px 14px rgba(139,92,246,0.1)' : 'none',
-              }}>
-                <div style={{
-                  width:30, height:30, borderRadius:'50%',
-                  background: i < step
-                    ? 'linear-gradient(135deg,#10B981,#059669)'
-                    : i === step
-                    ? 'linear-gradient(135deg,#8B5CF6,#EC4899)'
-                    : 'rgba(139,92,246,0.08)',
-                  border: i >= step ? '1px solid rgba(139,92,246,0.2)' : 'none',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:13, fontWeight:700, color: i >= step ? '#8B5CF6' : '#fff',
-                  flexShrink:0,
-                  boxShadow: i <= step ? '0 3px 10px rgba(139,92,246,0.2)' : 'none',
-                }}>
-                  {i < step ? '✓' : s.icon}
-                </div>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color: i <= step ? '#111827' : '#9CA3AF' }}>{s.label}</div>
-                  <div style={{ fontSize:11, color:'#9CA3AF' }}>{s.desc}</div>
-                </div>
-                {i === step && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'linear-gradient(135deg,#8B5CF6,#EC4899)', animation:'pulse 2s ease-in-out infinite' }} />}
-              </div>
-            ))}
-          </div>
-
-          {/* Trust badges */}
-          <div style={{ display:'flex', gap:10, marginTop:20, flexWrap:'wrap' }}>
-            {['🔒 HIPAA Safe', '🌐 256-bit SSL', '✦ AI Powered'].map(b => (
-              <span key={b} style={{ fontSize:10, fontWeight:600, color:'#6B7280', background:'rgba(255,255,255,0.7)', border:'1px solid rgba(139,92,246,0.12)', borderRadius:20, padding:'4px 10px', backdropFilter:'blur(6px)' }}>{b}</span>
-            ))}
-          </div>
+    <AuthLayout
+      title={<>Join 10,000+ people caring for skin, <em>smarter.</em></>}
+      subtitle="Three quick steps and your first AI skin analysis is ready to go."
+      topLink={<>Already a member? <button onClick={() => navigate('login')}>Sign in</button></>}
+    >
+      <form className="auth-form" onSubmit={onSubmit} noValidate>
+        <div className="steps-bar" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+          {STEPS.map((s, i) => (
+            <div key={s} className={i < step ? 'done' : i === step ? 'current' : ''}>
+              <span /><small>0{i + 1} · {s}</small>
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* Right Panel */}
-      <div className="auth-right">
-        <div className="auth-form-container animate-fade-right">
-          {/* Brand */}
-          <div style={{ marginBottom:20, cursor:'pointer', display:'flex', alignItems:'center', gap:8 }} onClick={() => navigate('landing')}>
-            <div style={{ width:26, height:26, borderRadius:7, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:'#fff', fontWeight:900 }}>✦</div>
-            <span style={{ fontSize:15, fontWeight:800, background:'linear-gradient(135deg,#8B5CF6,#EC4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>SkinVeda.ai</span>
-          </div>
-
-          {/* Progress */}
-          <div style={{ marginBottom:22 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-              <span style={{ fontSize:12, fontWeight:700, color:'#111827' }}>Step {step+1} of {STEPS.length} — {STEPS[step].label}</span>
-              <span style={{ fontSize:12, color:'#9CA3AF' }}>{Math.round((step/STEPS.length)*100)}%</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width:`${(step/STEPS.length)*100}%` }} />
-            </div>
-          </div>
-
-          {/* Step 0 — Account */}
-          {step === 0 && (
-            <div className="auth-form animate-fade-in">
-              <h1 className="auth-title">Create your account</h1>
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input id="signup-name" type="text" className="form-input" placeholder="Alex Johnson"
+        {step === 0 && (
+          <>
+            <h1>Create your <em>account</em></h1>
+            <p className="lead">Free forever for your first analyses. No card needed.</p>
+            <div className="field">
+              <label className="label" htmlFor="su-name">Full name</label>
+              <div className="input-wrap">
+                <Icon name="user" size={18} />
+                <input id="su-name" className={`input${errors.name ? ' has-error' : ''}`} placeholder="Priya Sharma" autoComplete="name"
                   value={form.name} onChange={e => update('name', e.target.value)} />
-                {errors.name && <div className="form-error">⚠ {errors.name}</div>}
               </div>
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input id="signup-email" type="email" className="form-input" placeholder="you@example.com"
+              {err('name')}
+            </div>
+            <div className="field">
+              <label className="label" htmlFor="su-email">Email</label>
+              <div className="input-wrap">
+                <Icon name="mail" size={18} />
+                <input id="su-email" type="email" className={`input${errors.email ? ' has-error' : ''}`} placeholder="you@example.com" autoComplete="email"
                   value={form.email} onChange={e => update('email', e.target.value)} />
-                {errors.email && <div className="form-error">⚠ {errors.email}</div>}
               </div>
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <div style={{ position:'relative' }}>
-                  <input id="signup-password" type={showPass ? 'text' : 'password'} className="form-input"
-                    placeholder="Min. 8 characters" value={form.password}
-                    onChange={e => update('password', e.target.value)} style={{ paddingRight:44 }} />
-                  <button type="button" onClick={() => setShowPass(p => !p)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#9CA3AF', fontSize:15, cursor:'pointer' }}>
-                    {showPass ? '🙈' : '👁'}
-                  </button>
+              {err('email')}
+            </div>
+            <div className="field">
+              <label className="label" htmlFor="su-pass">Password <small>8+ characters</small></label>
+              <div className="input-wrap">
+                <Icon name="lock" size={18} />
+                <input id="su-pass" type={showPass ? 'text' : 'password'} autoComplete="new-password" style={{ paddingRight: 52 }}
+                  className={`input${errors.password ? ' has-error' : ''}`} placeholder="Create a password"
+                  value={form.password} onChange={e => update('password', e.target.value)} />
+                <button type="button" className="icon-btn input-action" onClick={() => setShowPass(p => !p)} aria-label={showPass ? 'Hide password' : 'Show password'}>
+                  <Icon name={showPass ? 'eyeOff' : 'eye'} size={18} />
+                </button>
+              </div>
+              {form.password && (
+                <div className="pw-meter" data-score={score} aria-label={`Password strength ${score} of 4`}>
+                  <span /><span /><span /><span />
                 </div>
-                {errors.password && <div className="form-error">⚠ {errors.password}</div>}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Confirm Password</label>
-                <input id="signup-confirm" type="password" className="form-input" placeholder="Repeat password"
+              )}
+              {err('password')}
+            </div>
+            <div className="field">
+              <label className="label" htmlFor="su-confirm">Confirm password</label>
+              <div className="input-wrap">
+                <Icon name="shield" size={18} />
+                <input id="su-confirm" type={showPass ? 'text' : 'password'} autoComplete="new-password"
+                  className={`input${errors.confirmPassword ? ' has-error' : ''}`} placeholder="Repeat password"
                   value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} />
-                {errors.confirmPassword && <div className="form-error">⚠ {errors.confirmPassword}</div>}
               </div>
-              <button className="btn btn-primary btn-lg" style={{ width:'100%' }} onClick={nextStep}>Continue →</button>
+              {err('confirmPassword')}
             </div>
-          )}
+          </>
+        )}
 
-          {/* Step 1 — Profile */}
-          {step === 1 && (
-            <div className="auth-form animate-fade-in">
-              <h1 className="auth-title">Tell us about yourself</h1>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Age</label>
-                  <input id="signup-age" type="number" className="form-input" placeholder="25" min="10" max="100"
-                    value={form.age} onChange={e => update('age', e.target.value)} />
-                  {errors.age && <div className="form-error">⚠ {errors.age}</div>}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Gender</label>
-                  <select className="form-select" value={form.gender} onChange={e => update('gender', e.target.value)}>
-                    <option value="">Select</option>
-                    <option>Male</option><option>Female</option>
-                    <option>Non-binary</option><option>Prefer not to say</option>
-                  </select>
-                  {errors.gender && <div className="form-error">⚠ {errors.gender}</div>}
-                </div>
+        {step === 1 && (
+          <>
+            <h1>A little <em>about you</em></h1>
+            <p className="lead">Age and climate change how skin behaves — this sharpens your results.</p>
+            <div className="form-grid">
+              <div className="field">
+                <label className="label" htmlFor="su-age">Age</label>
+                <input id="su-age" type="number" min="10" max="100" className={`input${errors.age ? ' has-error' : ''}`} placeholder="28"
+                  value={form.age} onChange={e => update('age', e.target.value)} />
+                {err('age')}
               </div>
-              <div className="form-group">
-                <label className="form-label">City / Location (for UV & weather alerts)</label>
-                <input type="text" className="form-input" placeholder="e.g. Mumbai, India"
-                  value={form.location} onChange={e => update('location', e.target.value)} />
+              <div className="field">
+                <label className="label" htmlFor="su-loc">City <small>optional</small></label>
+                <input id="su-loc" className="input" placeholder="New Delhi" value={form.location} onChange={e => update('location', e.target.value)} />
               </div>
-              <div style={{ display:'flex', gap:10 }}>
-                <button className="btn btn-secondary" style={{ flex:1, padding:'11px 0' }} onClick={() => setStep(0)}>← Back</button>
-                <button className="btn btn-primary" style={{ flex:2, padding:'11px 0' }} onClick={nextStep}>Continue →</button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2 — Skin Info */}
-          {step === 2 && (
-            <div className="auth-form animate-fade-in">
-              <h1 className="auth-title">Your skin health</h1>
-              <div className="form-group">
-                <label className="form-label">Primary Skin Condition (if known)</label>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:7 }}>
-                  {SKIN_CONDITIONS.map(c => (
-                    <button key={c} type="button" onClick={() => update('skinCondition', c)} style={{
-                      padding:'9px 10px', borderRadius:10, textAlign:'left',
-                      border:`1.5px solid ${form.skinCondition === c ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.12)'}`,
-                      background: form.skinCondition === c ? 'linear-gradient(135deg,rgba(139,92,246,0.1),rgba(236,72,153,0.06))' : '#fff',
-                      color: form.skinCondition === c ? '#7C3AED' : '#6B7280',
-                      fontSize:12, fontWeight:600, cursor:'pointer',
-                      transition:'all 0.2s',
-                      boxShadow: form.skinCondition === c ? '0 3px 10px rgba(139,92,246,0.15)' : 'none',
-                    }}>
-                      {c}
+              <div className="field span-all">
+                <span className="label">Gender</span>
+                <div className="option-grid">
+                  {GENDERS.map(g => (
+                    <button type="button" key={g} className={`option${form.gender === g ? ' active' : ''}`} onClick={() => update('gender', g)}>
+                      <span className="dot">{form.gender === g && <Icon name="check" size={10} stroke={3} />}</span>{g}
                     </button>
                   ))}
                 </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Skin Type</label>
-                <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-                  {SKIN_TYPES.map(t => (
-                    <button key={t} type="button" onClick={() => update('skinType', t)} style={{
-                      padding:'7px 14px', borderRadius:20,
-                      border:`1.5px solid ${form.skinType === t ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.12)'}`,
-                      background: form.skinType === t ? 'linear-gradient(135deg,rgba(139,92,246,0.1),rgba(236,72,153,0.06))' : '#fff',
-                      color: form.skinType === t ? '#7C3AED' : '#6B7280',
-                      fontSize:12, fontWeight:600, cursor:'pointer',
-                      transition:'all 0.2s',
-                    }}>{t}</button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display:'flex', gap:10 }}>
-                <button className="btn btn-secondary" style={{ flex:1, padding:'11px 0' }} onClick={() => setStep(1)}>← Back</button>
-                <button className="btn btn-primary" style={{ flex:2, padding:'11px 0' }} onClick={handleSubmit} disabled={loading}>
-                  {loading ? <><span className="spinner spinner-sm" /> Creating account...</> : '🚀 Create Account'}
-                </button>
-              </div>
-              <div style={{ marginTop:8, padding:'9px 12px', borderRadius:10, background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.15)', fontSize:11, color:'#6B7280', lineHeight:1.6 }}>
-                ⚠️ AI analysis does not replace professional dermatological advice.
+                {err('gender')}
               </div>
             </div>
-          )}
+          </>
+        )}
 
-          <div className="auth-switch">
-            Already have an account? <span onClick={() => navigate('login')}>Sign in →</span>
-          </div>
+        {step === 2 && (
+          <>
+            <h1>Tell us about <em>your skin</em></h1>
+            <p className="lead">Optional — you can change this anytime in your profile.</p>
+            <div className="field">
+              <span className="label">Skin type</span>
+              <div className="chip-row">
+                {SKIN_TYPES.map(t => (
+                  <button type="button" key={t} className={`tag-chip${form.skinType === t ? ' active' : ''}`} onClick={() => update('skinType', t)}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div className="field">
+              <span className="label">Main concern</span>
+              <div className="option-grid">
+                {SKIN_CONDITIONS.map(c => (
+                  <button type="button" key={c} className={`option${form.skinCondition === c ? ' active' : ''}`} onClick={() => update('skinCondition', c)}>
+                    <span className="dot">{form.skinCondition === c && <Icon name="check" size={10} stroke={3} />}</span>{c}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="check mt-16">
+              <input type="checkbox" checked={form.diagnosedBefore} onChange={e => update('diagnosedBefore', e.target.checked)} />
+              A dermatologist has diagnosed this condition before
+            </label>
+          </>
+        )}
+
+        <div className="row mt-24">
+          {step > 0 && (
+            <button type="button" className="btn btn-ghost btn-lg" onClick={() => setStep(s => s - 1)} aria-label="Back">
+              <Icon name="back" size={18} />
+            </button>
+          )}
+          <button type="submit" className="btn btn-dark btn-lg" style={{ flex: 1 }} disabled={loading}>
+            {loading ? <><span className="spinner" /> Creating account…</>
+              : step < STEPS.length - 1 ? <>Continue <Icon name="arrow" size={18} /></>
+              : <>Create account <Icon name="check" size={18} /></>}
+          </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }
