@@ -1,65 +1,85 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../App';
-import { formatDate, timeAgo, MONTHS } from '../data/mockData';
-import { Icon, Meter, LineChart, PageHeader, Segmented, EmptyState, CompareSlider } from '../components/ui';
-import { enrichDiagnosis, METRIC_LABELS } from '../lib/skin';
+import { Icon, LineChart, PageHeader, EmptyState, CompareSlider } from '../components/ui';
+import { SafetyNotice } from '../components/skin';
+import { METRICS } from '../lib/records';
+import { useNow } from '../lib/skin';
 import { compressFile } from '../lib/image';
+import { api, getToken } from '../api';
+import { formatDate } from '../data/mockData';
 
-const REGIONS = ['Face', 'Neck', 'Forearm', 'Inner elbow', 'Back of knee', 'Chest', 'Back', 'Scalp', 'Hand', 'Leg'];
+const DAY = 864e5;
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const concernScore = (scan, id) => scan?.concerns?.find(c => c.id === id)?.score ?? 0;
 
-const weekOf = d => {
-  const t = new Date(d); t.setHours(0, 0, 0, 0);
-  t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); // Monday
-  return t;
-};
+// Rows compared across the journey; `better` says which direction is an improvement
+const COMPARE_ROWS = [
+  { label: 'Overall skin score', get: s => s.skinScore, better: 'high' },
+  { label: 'Acne-like spots', get: s => concernScore(s, 'acne'), better: 'low' },
+  { label: 'Pigmentation', get: s => s.metrics.pigmentation, better: 'low' },
+  { label: 'Redness', get: s => s.metrics.redness, better: 'low' },
+  { label: 'Texture', get: s => s.metrics.texture, better: 'high' },
+  { label: 'Oiliness', get: s => s.metrics.oiliness, better: 'mid' },
+];
 
-const valueOf = (d, m) => (m === 'skinScore' ? d.skinScore : d.metrics[m]);
+function pickJourney(chrono) {
+  if (!chrono.length) return [];
+  const first = chrono[0];
+  const t0 = new Date(first.timestamp).getTime();
+  const nearest = target => chrono.reduce((best, s) => (Math.abs(new Date(s.timestamp) - target) < Math.abs(new Date(best.timestamp) - target) ? s : best), first);
+  const day = s => Math.round((new Date(s.timestamp) - t0) / DAY) + 1;
+  const mid = nearest(t0 + 13 * DAY);
+  const last = chrono[chrono.length - 1];
+  const picks = [first, mid, last].filter((s, i, a) => a.findIndex(x => x.id === s.id) === i);
+  return picks.map(s => ({ scan: s, label: `Day ${day(s)}` }));
+}
+
+function useConsistency(days = 14) {
+  const now = useNow();
+  const [levels, setLevels] = useState(null);
+  useEffect(() => {
+    const dates = Array.from({ length: days }, (_, i) => isoDay(new Date(now - (days - 1 - i) * DAY)));
+    const toLevel = steps => (!steps?.length ? 0 : steps.length >= 3 ? 2 : 1);
+    const fromCache = () => dates.map(d => { try { return toLevel(JSON.parse(localStorage.getItem(`sv_routine_${d}`))); } catch { return 0; } });
+    if (!getToken()) { setLevels(fromCache()); return; }
+    api.routineHistory(dates[0], dates[dates.length - 1])
+      .then(rows => { const map = Object.fromEntries(rows.map(r => [r.day, r.done_steps])); setLevels(dates.map(d => toLevel(map[d]))); })
+      .catch(() => setLevels(fromCache()));
+  }, [now, days]);
+  return levels;
+}
+
+function NoteEditor({ scan }) {
+  const { updateScanNote } = useApp();
+  const [text, setText] = useState(scan.notes || '');
+  const [saving, setSaving] = useState(false);
+  const dirty = text !== (scan.notes || '');
+  return (
+    <div className="row" style={{ gap: 8, alignItems: 'stretch' }} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+      <input className="input" style={{ minHeight: 36, fontSize: 13.5 }} placeholder="Add a note (e.g. started niacinamide)" value={text}
+        onChange={e => setText(e.target.value)} aria-label={`Note for scan on ${formatDate(scan.timestamp)}`} maxLength={300} />
+      {dirty && <button className="btn btn-sm btn-soft" disabled={saving} onClick={async () => { setSaving(true); await updateScanNote(scan.id, text).catch(() => {}); setSaving(false); }}>Save</button>}
+    </div>
+  );
+}
 
 export default function Progress() {
-  const { diagnoses, progressPhotos, addProgressPhoto, openResult, navigate, showToast } = useApp();
-  const [period, setPeriod] = useState('weekly');
+  const { scans, progressPhotos, addProgressPhoto, openScan, navigate, showToast } = useApp();
   const [metric, setMetric] = useState('skinScore');
-  const [region, setRegion] = useState('Face');
   const [selected, setSelected] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef();
+  const fileRef = useRef(null);
+  const consistency = useConsistency(14);
 
-  const history = useMemo(() => diagnoses.map(enrichDiagnosis), [diagnoses]);
-  const chrono = useMemo(() => [...history].reverse(), [history]);
-  const first = chrono[0];
-  const latest = history[0];
-
-  // Aggregate by week or month (average of scans in the bucket)
-  const series = useMemo(() => {
-    const buckets = new Map();
-    chrono.forEach(d => {
-      const key = period === 'weekly' ? weekOf(d.timestamp).getTime() : new Date(new Date(d.timestamp).getFullYear(), new Date(d.timestamp).getMonth(), 1).getTime();
-      const b = buckets.get(key) || [];
-      b.push(valueOf(d, metric));
-      buckets.set(key, b);
-    });
-    return [...buckets.entries()].map(([k, vals]) => {
-      const dt = new Date(k);
-      return {
-        label: period === 'weekly' ? `${MONTHS[dt.getMonth()]} ${dt.getDate()}` : `${MONTHS[dt.getMonth()]} ’${String(dt.getFullYear()).slice(2)}`,
-        value: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-      };
-    });
-  }, [chrono, period, metric]);
-
-  const change = first && latest ? latest.skinScore - first.skinScore : 0;
-  const best = history.length ? Math.max(...history.map(d => d.skinScore)) : 0;
-  const thisMonth = history.filter(d => new Date(d.timestamp).getMonth() === new Date().getMonth() && new Date(d.timestamp).getFullYear() === new Date().getFullYear()).length;
-
-  const milestones = [
-    { title: 'First analysis', sub: first ? formatDate(first.timestamp) : 'Run your first scan', reached: history.length >= 1 },
-    { title: '3 scans completed', sub: 'Enough data to see a trend', reached: history.length >= 3 },
-    { title: '+5 point improvement', sub: 'Your routine is working', reached: change >= 5 },
-    { title: 'Score of 75+', sub: 'Very good skin health', reached: best >= 75 },
-    { title: '+15 point improvement', sub: 'A visible transformation', reached: change >= 15 },
-    { title: 'Score of 85+', sub: 'Excellent — maintain it', reached: best >= 85 },
-  ];
-  const nextIdx = milestones.findIndex(m => !m.reached);
+  const chrono = useMemo(() => [...scans].reverse(), [scans]);
+  const journey = pickJourney(chrono);
+  const series = chrono.map(s => ({
+    label: formatDate(s.timestamp).replace(/, \d{4}$/, ''),
+    value: metric === 'skinScore' ? s.skinScore : s.metrics[metric],
+  }));
+  const first = chrono[0], last = chrono[chrono.length - 1];
+  const photoPair = chrono.filter(s => s.imageData);
+  const activeDays = consistency ? consistency.filter(Boolean).length : 0;
 
   const onFiles = async e => {
     const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
@@ -68,171 +88,161 @@ export default function Progress() {
     setUploading(true);
     let added = 0;
     for (const file of files) {
-      try {
-        await addProgressPhoto({ imageData: await compressFile(file), bodyRegion: region, notes: '' });
-        added++;
-      } catch (err) {
-        showToast(`${file.name}: ${err.message}`, 'error');
-      }
+      try { await addProgressPhoto({ imageData: await compressFile(file), bodyRegion: 'Face', notes: '' }); added++; }
+      catch (err) { showToast(`${file.name}: ${err.message}`, 'error'); }
     }
     setUploading(false);
-    if (added) showToast(`${added} photo${added > 1 ? 's' : ''} added to your timeline`, 'success');
+    if (added) showToast(`${added} photo${added > 1 ? 's' : ''} added to your journey`, 'success');
   };
-
   const toggleSelect = id => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s.slice(-1), id]));
-  const pair = selected.map(id => progressPhotos.find(p => p.id === id)).filter(Boolean)
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const pair = selected.map(id => progressPhotos.find(p => p.id === id)).filter(Boolean).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  if (!scans.length) {
+    return (
+      <>
+        <PageHeader eyebrow="Progress" title="My skin journey" />
+        <div className="card"><EmptyState icon="trend" title="Your journey starts with your first scan"
+          text="Scan once a week in similar light. We'll compare Day 1, Day 14 and Day 30 so you can see what's changing."
+          action={<button className="btn btn-primary" onClick={() => navigate('scan')}><Icon name="scan" size={17} /> Scan my skin</button>} /></div>
+      </>
+    );
+  }
 
   return (
     <>
-      <PageHeader
-        eyebrow="Progress tracking"
-        title={<>How your skin is <em>changing</em></>}
-        subtitle="Every scan adds a data point. Consistent weekly scans in similar light give the clearest picture."
-        actions={<>
-          <Segmented value={period} onChange={setPeriod} options={[{ value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]} />
-          <button className="btn btn-dark btn-sm" onClick={() => navigate('diagnosis')}><Icon name="scan" size={16} /> New scan</button>
-        </>}
-      />
+      <PageHeader eyebrow="Progress" title="My skin journey"
+        subtitle="Honest comparisons of your own scans over time. Photos are shown exactly as taken — nothing is retouched."
+        actions={<button className="btn btn-primary" onClick={() => navigate('scan')}><Icon name="scan" size={17} /> New scan</button>} />
 
-      <section className="grid g-4">
-        <div className="card stat">
-          <span className="stat-label">Current score</span>
-          <span className="stat-value">{latest?.skinScore ?? '—'}</span>
-          <span className="stat-foot">{latest ? timeAgo(latest.timestamp) : 'No scans yet'}</span>
-        </div>
-        <div className="card stat">
-          <span className="stat-label">Since first scan</span>
-          <span className={`stat-value ${change > 0 ? 'up' : change < 0 ? 'down' : ''}`} style={{ fontWeight: 800 }}>{history.length > 1 ? `${change >= 0 ? '+' : ''}${change}` : '—'}<small>pts</small></span>
-          <span className="stat-foot">{first ? `From ${first.skinScore} on ${formatDate(first.timestamp)}` : '—'}</span>
-        </div>
-        <div className="card stat">
-          <span className="stat-label">Best score</span>
-          <span className="stat-value">{best || '—'}</span>
-          <span className="stat-foot">Personal record</span>
-        </div>
-        <div className="card stat">
-          <span className="stat-label">Scans this month</span>
-          <span className="stat-value">{thisMonth}<small>/ 4</small></span>
-          <Meter value={Math.min(100, (thisMonth / 4) * 100)} thin />
-        </div>
-      </section>
-
-      <div className="card section-gap">
-        <div className="card-head" style={{ flexWrap: 'wrap' }}>
-          <div><h3>{metric === 'skinScore' ? 'Skin score' : METRIC_LABELS[metric]} · {period}</h3><p className="card-sub">Average of scans in each {period === 'weekly' ? 'week' : 'month'}</p></div>
-          <select className="select" style={{ height: 38, width: 'auto', borderRadius: 99, fontSize: 13.5 }} value={metric} onChange={e => setMetric(e.target.value)} aria-label="Metric">
-            <option value="skinScore">Skin score</option>
-            {Object.entries(METRIC_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-        </div>
-        {series.length >= 2
-          ? <LineChart points={series} height={260} ariaLabel={`${metric} ${period} trend`} />
-          : <EmptyState icon="chart" title="Not enough data yet" text={`You need scans in at least two different ${period === 'weekly' ? 'weeks' : 'months'} to draw a trend.`}
-              action={<button className="btn btn-soft btn-sm" onClick={() => navigate('diagnosis')}>Add a scan</button>} />}
-      </div>
-
-      <div className="grid g-main section-gap">
-        <div className="stack">
-          {/* Metric change */}
-          {first && latest && history.length > 1 && (
-            <div className="card">
-              <div className="card-head"><h3>What’s improved</h3><span className="mono">First → latest</span></div>
-              <ul className="metric-list">
-                {Object.entries(METRIC_LABELS).map(([k, l]) => {
-                  const dv = latest.metrics[k] - first.metrics[k];
-                  return (
-                    <li key={k}>
-                      <div><span>{l}</span><b>{first.metrics[k]} → {latest.metrics[k]} <span className={dv >= 0 ? 'up' : 'down'}>({dv >= 0 ? '+' : ''}{dv})</span></b></div>
-                      <Meter value={latest.metrics[k]} tone={dv >= 0 ? 'emerald' : 'clay'} thin />
-                    </li>
-                  );
-                })}
-              </ul>
+      <div className="stack">
+        {/* Day 1 / 14 / 30 */}
+        <section className="card" aria-labelledby="journey-h">
+          <div className="card-head"><h3 id="journey-h">Your journey so far</h3><span className="t-small muted">{scans.length} scan{scans.length > 1 ? 's' : ''}</span></div>
+          <div className="journey">
+            {journey.map((j, i) => (
+              <button key={j.scan.id} className={`journey-col${i === journey.length - 1 ? ' current' : ''}`} onClick={() => openScan(j.scan.id)} style={{ textAlign: 'left' }}>
+                <div className="row-between"><strong>{j.label}</strong><span className="t-help">{formatDate(j.scan.timestamp)}</span></div>
+                <div className="journey-photo">{j.scan.imageData ? <img src={j.scan.imageData} alt={`Scan from ${j.label}`} /> : <Icon name="face" size={28} />}</div>
+                <div className="row-between"><span className="t-small ink2">Score</span><b className="num" style={{ fontSize: 20 }}>{j.scan.skinScore}</b></div>
+                {j.scan.concerns[0] && <span className="pill">{j.scan.concerns[0].name}</span>}
+              </button>
+            ))}
+          </div>
+          {journey.length > 1 && (
+            <div className="table-scroll mt-24">
+              <table className="compare-table-sm">
+                <thead><tr><th>Measure</th>{journey.map(j => <th key={j.scan.id}>{j.label}</th>)}<th>Change</th></tr></thead>
+                <tbody>
+                  {COMPARE_ROWS.map(r => {
+                    const a = r.get(journey[0].scan), b = r.get(journey[journey.length - 1].scan);
+                    const diff = b - a;
+                    const good = r.better === 'high' ? diff > 0 : r.better === 'low' ? diff < 0 : Math.abs(b - 42) < Math.abs(a - 42);
+                    return (
+                      <tr key={r.label}>
+                        <td>{r.label}</td>
+                        {journey.map(j => <td key={j.scan.id}>{r.get(j.scan)}</td>)}
+                        <td className={diff === 0 ? 'muted' : good ? 'up' : 'down'}>{diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${diff}`}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
+        </section>
 
-          {/* History */}
-          <div className="card">
-            <div className="card-head"><h3>Scan history</h3><span className="mono">{history.length} total</span></div>
-            {history.length ? (
-              <div className="table-scroll">
-                <table className="history-table">
-                  <thead><tr><th>Date</th><th>Finding</th><th>Area</th><th>Confidence</th><th>Score</th><th /></tr></thead>
-                  <tbody>
-                    {history.map((d, i) => {
-                      const dv = history[i + 1] ? d.skinScore - history[i + 1].skinScore : null;
-                      return (
-                        <tr key={d.id} onClick={() => openResult(d.id)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && openResult(d.id)}>
-                          <td className="nowrap">{formatDate(d.timestamp)}</td>
-                          <td><strong style={{ fontWeight: 600 }}>{d.disease}</strong></td>
-                          <td className="muted">{d.bodyRegion || 'Face'}</td>
-                          <td className="num">{Math.round(d.confidence * 100)}%</td>
-                          <td className="nowrap"><span className="pill pill-emerald">{d.skinScore}</span>{dv !== null && <small className={dv >= 0 ? 'up' : 'down'} style={{ marginLeft: 8 }}>{dv >= 0 ? '▲' : '▼'}{Math.abs(dv)}</small>}</td>
-                          <td><Icon name="chevron" size={16} className="muted" /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : <EmptyState icon="list" title="No scans yet" text="Your analyses will be listed here with their scores." />}
-          </div>
-
-          {/* Photo timeline */}
-          <div className="card">
+        <div className="grid g-main">
+          {/* Graph */}
+          <section className="card" aria-labelledby="graph-h">
             <div className="card-head" style={{ flexWrap: 'wrap' }}>
-              <div><h3>Photo timeline</h3><p className="card-sub">Select two photos to compare them side by side</p></div>
-              <select className="select" style={{ height: 36, width: 'auto', borderRadius: 99, fontSize: 13 }} value={region} onChange={e => setRegion(e.target.value)} aria-label="Body region for new photos">
-                {REGIONS.map(r => <option key={r}>{r}</option>)}
+              <h3 id="graph-h">Progress graph</h3>
+              <select className="select select-sm" value={metric} onChange={e => setMetric(e.target.value)} aria-label="Measure to show">
+                <option value="skinScore">Overall skin score</option>
+                {METRICS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
               </select>
             </div>
-            {pair.length === 2 && (
-              <div style={{ marginBottom: 16 }}>
-                <CompareSlider before={pair[0].imageData} after={pair[1].imageData} />
-                <div className="row-between mt-8 muted" style={{ fontSize: 12.5 }}>
-                  <span>{formatDate(pair[0].timestamp)}</span><button className="btn-text" onClick={() => setSelected([])}>Clear selection</button><span>{formatDate(pair[1].timestamp)}</span>
+            {series.length >= 2 ? <LineChart points={series} height={240} ariaLabel={`${metric} over time`} />
+              : <p className="t-small ink2">Your graph appears after your second scan.</p>}
+          </section>
+
+          {/* Consistency */}
+          <section className="card" aria-labelledby="cons-h">
+            <div className="card-head"><h3 id="cons-h">Routine consistency</h3><span className="t-small muted">Last 14 days</span></div>
+            {consistency ? (
+              <>
+                <div className="consistency" role="img" aria-label={`Routine followed on ${activeDays} of the last 14 days`}>
+                  {consistency.map((l, i) => <span key={i} data-l={l} />)}
                 </div>
-              </div>
-            )}
-            <div className="photo-grid">
-              <button className="photo-tile photo-add" onClick={() => fileRef.current.click()} disabled={uploading}>
-                <span>{uploading ? <span className="spinner" /> : <Icon name="plus" size={22} />}<br />Add photo</span>
-              </button>
-              {progressPhotos.map(p => {
-                const si = selected.indexOf(p.id);
-                return (
-                  <button key={p.id} className={`photo-tile${si >= 0 ? ' selected' : ''}`} onClick={() => toggleSelect(p.id)} aria-pressed={si >= 0}>
-                    <img src={p.imageData} alt={`${p.bodyRegion} on ${formatDate(p.timestamp)}`} />
-                    {si >= 0 && <span className="photo-tile-sel">{si + 1}</span>}
-                    <span className="photo-tile-meta"><span>{p.bodyRegion}</span><span>{formatDate(p.timestamp).replace(/, \d{4}$/, '')}</span></span>
-                  </button>
-                );
-              })}
+                <p className="t-small ink2 mt-16"><b>{activeDays} of 14 days</b> with at least one step ticked. Consistency matters more than perfection.</p>
+              </>
+            ) : <div className="skeleton" style={{ height: 40 }} />}
+            <button className="btn btn-sm btn-ghost mt-16" onClick={() => navigate('my-skin/routine')}>Open my routine</button>
+          </section>
+        </div>
+
+        {/* Before / after */}
+        {photoPair.length >= 2 && (
+          <section className="card" aria-labelledby="ba-h">
+            <div className="card-head"><div><h3 id="ba-h">Before and after</h3><p className="card-sub">{formatDate(photoPair[0].timestamp)} → {formatDate(photoPair[photoPair.length - 1].timestamp)} · drag to compare</p></div></div>
+            <CompareSlider before={photoPair[0].imageData} after={photoPair[photoPair.length - 1].imageData} />
+            <p className="t-help mt-8">Lighting and angle affect how skin looks. Compare photos taken in similar conditions.</p>
+          </section>
+        )}
+
+        {/* History + notes */}
+        <section className="card" aria-labelledby="hist-h">
+          <div className="card-head"><h3 id="hist-h">Previous scans</h3><span className="t-small muted">Tap a row to open the report</span></div>
+          <div className="table-scroll">
+            <table className="history-table">
+              <thead><tr><th>Date</th><th>Main concern</th><th>Score</th><th>Notes</th></tr></thead>
+              <tbody>
+                {scans.map((s, i) => {
+                  const dv = scans[i + 1] ? s.skinScore - scans[i + 1].skinScore : null;
+                  return (
+                    <tr key={s.id} onClick={() => openScan(s.id)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && e.target === e.currentTarget && openScan(s.id)}>
+                      <td className="nowrap">{formatDate(s.timestamp)}</td>
+                      <td>{s.concerns[0]?.name || 'No strong concerns'}</td>
+                      <td className="nowrap num"><span className="pill pill-primary">{s.skinScore}</span>{dv !== null && dv !== 0 && <small className={dv > 0 ? 'up' : 'down'} style={{ marginLeft: 8 }}>{dv > 0 ? '▲' : '▼'}{Math.abs(dv)}</small>}</td>
+                      <td style={{ minWidth: 240 }}><NoteEditor scan={s} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {first && last && first.id !== last.id && (
+            <p className="t-small ink2 mt-16">Since {formatDate(first.timestamp)}: overall score {last.skinScore - first.skinScore >= 0 ? 'up' : 'down'} {Math.abs(last.skinScore - first.skinScore)} points.</p>
+          )}
+        </section>
+
+        {/* Extra photos */}
+        <section className="card" aria-labelledby="photos-h">
+          <div className="card-head"><div><h3 id="photos-h">Photo diary</h3><p className="card-sub">Optional extra photos. Select two to compare.</p></div></div>
+          {pair.length === 2 && (
+            <div style={{ marginBottom: 14 }}>
+              <CompareSlider before={pair[0].imageData} after={pair[1].imageData} />
+              <div className="row-between mt-8 t-small muted"><span>{formatDate(pair[0].timestamp)}</span><button className="btn-text" onClick={() => setSelected([])}>Clear</button><span>{formatDate(pair[1].timestamp)}</span></div>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+          )}
+          <div className="photo-grid">
+            <button className="photo-tile photo-add" onClick={() => fileRef.current.click()} disabled={uploading}>
+              <span>{uploading ? <span className="spinner" /> : <Icon name="plus" size={22} />}<br />Add photo</span>
+            </button>
+            {progressPhotos.map(p => {
+              const si = selected.indexOf(p.id);
+              return (
+                <button key={p.id} className={`photo-tile${si >= 0 ? ' selected' : ''}`} onClick={() => toggleSelect(p.id)} aria-pressed={si >= 0}>
+                  <img src={p.imageData} alt={`Photo from ${formatDate(p.timestamp)}`} />
+                  {si >= 0 && <span className="photo-tile-sel">{si + 1}</span>}
+                  <span className="photo-tile-meta"><span>{formatDate(p.timestamp).replace(/, \d{4}$/, '')}</span></span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+        </section>
 
-        <div className="stack">
-          <div className="card">
-            <div className="card-head"><h3>Milestones</h3><span className="pill pill-mono">{milestones.filter(m => m.reached).length}/{milestones.length}</span></div>
-            <ol className="timeline">
-              {milestones.map((m, i) => (
-                <li key={m.title} className={m.reached ? 'reached' : i === nextIdx ? 'next' : ''}>
-                  <span className="timeline-dot"><Icon name={m.reached ? 'check' : i === nextIdx ? 'target' : 'award'} size={14} stroke={m.reached ? 2.6 : 1.8} /></span>
-                  <div><strong>{m.title}</strong><small>{m.reached ? m.sub : i === nextIdx ? 'Up next · ' + m.sub : m.sub}</small></div>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="card card-dark">
-            <span className="mono" style={{ color: '#F0A58C' }}>Consistency tip</span>
-            <h3 style={{ fontSize: 19, letterSpacing: '-.02em', margin: '8px 0 6px' }}>Same time, same light, same angle</h3>
-            <p className="muted" style={{ fontSize: 13.5 }}>Scanning every Sunday morning by a window keeps your trend honest — and makes small wins visible.</p>
-          </div>
-        </div>
+        <SafetyNotice compact />
       </div>
     </>
   );
