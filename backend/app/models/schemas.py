@@ -90,6 +90,10 @@ class DiagnosisRecordCreate(BaseModel):
     image_data: Optional[str] = Field(None, max_length=1_500_000)
     model_version: Optional[str] = Field(None, max_length=60)
     analysis_id: Optional[str] = Field(None, max_length=60)
+    version: int = Field(1, ge=1, le=9)
+    skin_type: Optional[str] = Field(None, max_length=30)
+    summary: Optional[str] = Field(None, max_length=600)
+    escalation: Dict[str, Any] = {}
 
     @field_validator("image_data")
     @classmethod

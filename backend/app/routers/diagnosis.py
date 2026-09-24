@@ -93,14 +93,15 @@ async def save_record(data: DiagnosisRecordCreate, current_user=Depends(get_curr
     row = await get_pool().fetchrow(
         """insert into diagnoses (user_id, disease, confidence, risk_level, description, recommendations,
                symptoms, triggers, body_region, notes, skin_score, metrics, concerns, image_data,
-               ai_model_version, analysis_id)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+               ai_model_version, analysis_id, version, skin_type, summary, escalation)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
            returning *""",
         uuid.UUID(current_user["id"]), data.disease, data.confidence, data.risk_level, data.description,
         data.recommendations, data.symptoms, data.triggers, data.body_region, data.notes,
         data.skin_score, data.metrics, data.concerns, data.image_data,
         data.model_version or "SkinVeda-DINOv2-v2.1",
         data.analysis_id or f"SVD-{uuid.uuid4().hex[:12].upper()}",
+        data.version, data.skin_type, data.summary, data.escalation,
     )
     return {**dict(row), "id": str(row["id"]), "user_id": str(row["user_id"])}
 

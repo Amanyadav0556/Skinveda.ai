@@ -49,6 +49,11 @@ alter table diagnoses add column if not exists skin_score int;
 alter table diagnoses add column if not exists metrics    jsonb not null default '{}';
 alter table diagnoses add column if not exists concerns   jsonb not null default '[]';
 alter table diagnoses add column if not exists image_data text;
+-- v2 "visible concerns" assessment fields
+alter table diagnoses add column if not exists version    int not null default 1;
+alter table diagnoses add column if not exists skin_type  text;
+alter table diagnoses add column if not exists summary    text;
+alter table diagnoses add column if not exists escalation jsonb not null default '{}';
 
 create table if not exists mood_logs (
     id        uuid primary key default gen_random_uuid(),
