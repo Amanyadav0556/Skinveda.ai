@@ -9,7 +9,7 @@ import uvicorn
 import logging
 from app.config.database import connect_db, close_db
 from app.config.settings import settings
-from app.routers import auth, diagnosis, mood, environment, reports, progress, routine
+from app.routers import auth, diagnosis, mood, environment, reports, progress, routine, appointments
 from app.middleware.auth import AuthMiddleware
 
 # Logging
@@ -44,6 +44,7 @@ app.include_router(environment.router, prefix="/api/environment", tags=["Environ
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
 app.include_router(routine.router, prefix="/api/routine", tags=["Routine"])
+app.include_router(appointments.router, prefix="/api/appointments", tags=["Appointments"])
 
 # Lifecycle
 @app.on_event("startup")
