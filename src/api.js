@@ -64,6 +64,46 @@ export function toAppUser(u = {}) {
     };
 }
 
+export function toAppDiagnosis(d = {}) {
+    return {
+        id: d.id,
+        disease: d.disease,
+        confidence: d.confidence,
+        risk: d.risk_level,
+        description: d.description,
+        recommendations: d.recommendations || [],
+        symptoms: d.symptoms || [],
+        triggers: d.triggers || [],
+        bodyRegion: d.body_region,
+        notes: d.notes,
+        skinScore: d.skin_score ?? undefined,
+        metrics: d.metrics && Object.keys(d.metrics).length ? d.metrics : undefined,
+        concerns: d.concerns?.length ? d.concerns : undefined,
+        imageData: d.image_data || d.image_url || null,
+        modelVersion: d.ai_model_version,
+        analysisId: d.analysis_id,
+        timestamp: d.timestamp,
+    };
+}
+
+const toApiDiagnosis = (d) => ({
+    disease: d.disease,
+    confidence: d.confidence,
+    risk_level: d.risk || null,
+    description: d.description || null,
+    recommendations: d.recommendations || [],
+    symptoms: d.symptoms || [],
+    triggers: d.triggers || [],
+    body_region: d.bodyRegion || null,
+    notes: d.notes || null,
+    skin_score: d.skinScore ?? null,
+    metrics: d.metrics || {},
+    concerns: d.concerns || [],
+    image_data: d.imageData || null,
+    model_version: d.modelVersion || null,
+    analysis_id: d.analysisId || null,
+});
+
 function saveToken(data) {
     try { if (data?.access_token) localStorage.setItem('sv_token', data.access_token); } catch { /* storage unavailable */ }
 }
@@ -87,4 +127,11 @@ export const api = {
         mood: log.mood, score: log.score, notes: log.notes || null, tags: log.tags || [],
     }, 'Could not save mood'),
     clearMoods: () => request('DELETE', '/mood/', undefined, 'Could not clear mood history'),
+
+    // ── Skin analyses ──────────────────────────────────────────────
+    listDiagnoses: async () =>
+        (await request('GET', '/diagnosis/history?limit=100', undefined, 'Could not load analyses')).diagnoses.map(toAppDiagnosis),
+    saveDiagnosis: async (d) =>
+        toAppDiagnosis(await request('POST', '/diagnosis/records', toApiDiagnosis(d), 'Could not save analysis')),
+    clearDiagnoses: () => request('DELETE', '/diagnosis/', undefined, 'Could not clear analyses'),
 };
